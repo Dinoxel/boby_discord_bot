@@ -10,6 +10,8 @@ import re
 
 from dotenv import load_dotenv, find_dotenv
 
+from time import sleep
+
 load_dotenv(find_dotenv())
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
