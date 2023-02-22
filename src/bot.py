@@ -10,9 +10,6 @@ import re
 
 from dotenv import load_dotenv, find_dotenv
 
-# Ajouter Bad joke avec Question et réponse aléatoire sur website
-
-
 load_dotenv(find_dotenv())
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
