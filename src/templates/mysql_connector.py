@@ -66,8 +66,5 @@ class MysqlConnection:
 
                 if output_type in {"dict", "dictionary"}:
                     return [dict(zip(column_names, row)) for row in result_data]
-                # elif output_type in {"df", "dataframe"}:
-                #     return pd.DataFrame(result_data, columns=column_names)
                 else:
                     return result_data, column_names
-
