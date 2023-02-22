@@ -8,6 +8,9 @@ import re
 
 from dotenv import load_dotenv, find_dotenv
 
+# Ajouter Bad joke avec Question et réponse aléatoire sur website
+
+
 load_dotenv(find_dotenv())
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -25,6 +28,8 @@ print(GUILD_ID, CHANNEL_ID)
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=">", intents=intents)
 
+previous_last_merge_request = None
+
 
 def lb(text: str) -> str:
     """Add line break to the end of the text"""
@@ -33,6 +38,7 @@ def lb(text: str) -> str:
 
 @bot.command()
 async def helper(ctx):
+    """Display all available commands"""
     return_text = lb("Available commands:")
     available_commands = {"ticket": "ticket [-d, --details, details] <ticket_id>...",
                           "helper": "helper",
@@ -46,11 +52,9 @@ async def helper(ctx):
 
 @bot.command()
 async def ticket(ctx, *tickets):
-    tickets = tuple(set(tickets))
-
-    embed = discord.Embed(
-        title="Jira Tickets",
-        color=0x0052cc)
+    """Display Jira tickets"""
+    tickets = list(dict.fromkeys(tickets))
+    embed = discord.Embed(title="Jira Tickets", color=0x0052cc)
 
     if tickets:
         if any(p in {"-d", "--details", "details"} for p in tickets):
@@ -67,36 +71,68 @@ async def ticket(ctx, *tickets):
 
 @bot.command()
 async def loop(ctx, command=None):
+    """Manage the loop that check for new merge requests"""
     if command is None:
-        await ctx.send(merge_request_checker.get_task())
+        await ctx.send(last_merge_request_checker.get_task())
     elif command in {"-i", "--info", "info"}:
         await ctx.send("2")
     elif command in {"-r", "--restart", "restart"}:
         await ctx.send(f"Loop restarted")
-        merge_request_checker.start()
+        last_merge_request_checker.start()
     elif command in {"-s", "--stop", "stop"}:
         await ctx.send(f"Loop stopped")
-        merge_request_checker.cancel()
+        last_merge_request_checker.cancel()
     else:
         await ctx.send("Unknown command\nAvailable commands: -r --restart restart, -s --stop stop, -i --info info")
 
 
 @bot.listen()
 async def on_ready():
-    # merge_request_checker.start()
-    pass
+    """Start the tasks loop when the bot is ready"""
+    last_merge_request_checker.start()
 
 
-@tasks.loop(seconds=5)
-async def merge_request_checker():
+@tasks.loop(seconds=6)
+async def last_merge_request_checker():
+    """Check for new merge requests"""
+
+    global previous_last_merge_request
+
     gl_repo = Gitlab(private_token=GITLAB_TOKEN).groups.get(GITLAB_REPO_ID)
     merge_requests = gl_repo.mergerequests.list(state="opened", get_all=True)
     last_merge_request = max(
         (mr for mr in merge_requests if mr.author["username"] not in {"Cafeine42", "BonaventureEleonore"}),
         key=lambda mr: mr.iid)
 
+    if previous_last_merge_request is None:
+        previous_last_merge_request = last_merge_request.id
+        return
+
+    if last_merge_request.id <= previous_last_merge_request:
+        return
+    previous_last_merge_request = last_merge_request.id
+
     channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
-    await channel.send(last_merge_request)
+
+    side_color = discord.Color.red() if last_merge_request.has_conflicts else discord.Color.green()
+    mr_author = last_merge_request.author["name"].replace("-", " ").replace("_", " ")
+    mr_author = re.sub(r"(\w)([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
+    embed = discord.Embed(title=mr_author, color=side_color)
+
+    mr_jira_id = re.search(r"^BOBY-(\d+)", last_merge_request.source_branch).groups()[0]
+
+    embed.set_thumbnail(url=last_merge_request.author["avatar_url"])
+    embed.add_field(name="", value=last_merge_request.title, inline=False)
+
+    embed.add_field(name="Lien Jira", value=f"[BOBY-{mr_jira_id}]({JIRA_URL}-{mr_jira_id})", inline=True)
+
+    if last_merge_request.labels:
+        embed.add_field(name="Labels", value=' • '.join(label for label in last_merge_request.labels), inline=True)
+
+    if last_merge_request.has_conflicts:
+        embed.add_field(name="⚠️ Merge Conflicts ⚠️", value="", inline=True)
+
+    await channel.send(embed=embed, content=f"MR {GITLAB_REPO_URL}/{last_merge_request.iid}")
 
 
 if __name__ == "__main__":
