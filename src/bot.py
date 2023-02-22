@@ -14,16 +14,14 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = 310945319372455936
-CHANNEL_ID = 1077880800218972201
+GUILD_ID = int(os.getenv("GUILD_ID"))
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
 GITLAB_REPO_ID = os.getenv("GITLAB_REPO_ID")
 GITLAB_REPO_URL = os.getenv("GITLAB_REPO_URL")
 
 JIRA_URL = os.getenv("JIRA_URL")
-
-print(GUILD_ID, CHANNEL_ID)
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=">", intents=intents)
