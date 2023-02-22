@@ -37,9 +37,10 @@ previous_last_merge_request = None
 async def helper(ctx):
     """Display all available commands"""
     return_text = "Available commands:\n"
-    available_commands = {"ticket": "ticket [-d, --details, details] <ticket_id>...",
-                          "helper": "helper",
-                          "loop": "loop [-r, --restart, restart] [-s, --stop, stop]"}
+    available_commands = {"helper": "helper",
+                          "ticket": "ticket <ticket_id>...",
+                          "loop": "loop [-r, --restart, restart] [-s, --stop, stop]",
+                          "blague": "blague [<kind>]"}
 
     for command, detail in available_commands.items():
         return_text += f"`{command}` - {detail}\n"
@@ -53,15 +54,12 @@ async def ticket(ctx, *tickets):
     tickets = list(dict.fromkeys(tickets))
     embed = discord.Embed(title="Jira Tickets", color=0x0052cc)
 
-    if tickets:
-        if any(p in {"-d", "--details", "details"} for p in tickets):
-            print("details")
+    if not tickets:
+        embed.add_field(name="", value="No tickets provided", inline=False)
 
-        for ticket_id in tickets:
-            if ticket_id.isdigit():
-                embed.add_field(name="", value=f"[BOBY-{ticket_id}]({JIRA_URL}-{ticket_id})", inline=False)
-    else:
-        embed.add_field(name="", value=f"No tickets provided", inline=False)
+    for ticket_id in tickets:
+        if ticket_id.isdigit():
+            embed.add_field(name="", value=f"[BOBY-{ticket_id}]({JIRA_URL}-{ticket_id})", inline=False)
 
     await ctx.send(embed=embed)
 
