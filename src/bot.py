@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands, tasks
 
+from blagues_api import BlaguesAPI, BlagueType
+
 from gitlab import Gitlab
 
 import os
@@ -23,27 +25,25 @@ GITLAB_REPO_URL = os.getenv("GITLAB_REPO_URL")
 
 JIRA_URL = os.getenv("JIRA_URL")
 
+BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
+blagues = BlaguesAPI(BLAGUES_API_TOKEN)
+
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix=">", intents=intents)
+bot = commands.Bot(command_prefix="$", intents=intents)
 
 previous_last_merge_request = None
-
-
-def lb(text: str) -> str:
-    """Add line break to the end of the text"""
-    return text + "\n"
 
 
 @bot.command()
 async def helper(ctx):
     """Display all available commands"""
-    return_text = lb("Available commands:")
+    return_text = "Available commands:\n"
     available_commands = {"ticket": "ticket [-d, --details, details] <ticket_id>...",
                           "helper": "helper",
                           "loop": "loop [-r, --restart, restart] [-s, --stop, stop]"}
 
     for command, detail in available_commands.items():
-        return_text += lb(f"`{command}` - {detail}")
+        return_text += f"`{command}` - {detail}\n"
 
     await ctx.send(return_text)
 
@@ -82,6 +82,21 @@ async def loop(ctx, command=None):
         last_merge_request_checker.cancel()
     else:
         await ctx.send("Unknown command\nAvailable commands: -r --restart restart, -s --stop stop, -i --info info")
+
+
+@bot.command()
+async def blague(ctx, kind=None):
+    """Display a random joke"""
+    if kind is None or kind not in {t.value for t in BlagueType}:
+        joke = await blagues.random(disallow=[BlagueType.LIMIT, BlagueType.BEAUF, BlagueType.DARK])
+        await ctx.send(joke.joke)
+
+    else:
+        joke = await blagues.random_categorized(kind)
+        await ctx.send(joke.joke)
+
+    sleep(2)
+    await ctx.send(joke.answer)
 
 
 @bot.listen()
