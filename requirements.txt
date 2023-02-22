@@ -8,5 +8,6 @@ discord.py==2.1.1
 frozenlist==1.3.3
 idna==3.4
 multidict==6.0.4
+PyMySQL==1.0.2
 python-dotenv==0.21.1
 yarl==1.8.2
