@@ -28,7 +28,7 @@ BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="$", intents=intents, shard_count=10)
+bot = commands.Bot(command_prefix="$", intents=intents)
 
 previous_last_merge_request = None
 
@@ -102,7 +102,7 @@ async def on_ready():
     last_merge_request_checker.start()
 
 
-@tasks.loop(seconds=6)
+@tasks.loop(seconds=8)
 async def last_merge_request_checker():
     """Check for new merge requests"""
 
@@ -143,7 +143,6 @@ async def last_merge_request_checker():
         embed.add_field(name="⚠️ Merge Conflicts ⚠️", value="", inline=True)
 
     await channel.send(embed=embed, content=f"MR {GITLAB_REPO_URL}/{last_merge_request.iid}")
-
 
 if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)
