@@ -30,27 +30,14 @@ blagues = BlaguesAPI(BLAGUES_API_TOKEN)
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="$", intents=intents)
 
-previous_last_merge_request = None
+previous_last_merge_request_id = None
 
 
-@bot.command()
-async def helper(ctx):
-    """Display all available commands"""
-    return_text = "Available commands:\n"
-    available_commands = {"helper": "helper",
-                          "ticket": "ticket <ticket_id>...",
-                          "loop": "loop [-r, restart] [-s, stop] [-i, info]",
-                          "blague": "blague [<kind>]"}
-
-    for command, detail in available_commands.items():
-        return_text += f"`{command}` - {detail}\n"
-
-    await ctx.send(return_text)
-
-
-@bot.command()
-async def ticket(ctx, *tickets):
-    """Display Jira tickets"""
+@bot.command(name="ticket", aliases=["t", "tickets", "jira", "j"])
+async def display_jira_tickets(ctx, *tickets):
+    """
+    Displays selected Jira tickets
+    """
     tickets = list(dict.fromkeys(tickets))
     embed = discord.Embed(title="Jira Tickets", color=0x0052cc)
 
@@ -64,13 +51,13 @@ async def ticket(ctx, *tickets):
     await ctx.send(embed=embed)
 
 
-@bot.command()
-async def loop(ctx, command=None):
-    """Manage the loop that check for new merge requests"""
+@bot.command(name="loop")
+async def loop_manager(ctx, command=None):
+    """
+    Manages the loop that check for new merge requests
+    """
     if command is None:
         await ctx.send(last_merge_request_checker.get_task())
-    elif command in {"-i", "info"}:
-        await ctx.send("2")
     elif command in {"-r", "restart"}:
         await ctx.send(f"Loop restarted")
         last_merge_request_checker.start()
@@ -78,12 +65,14 @@ async def loop(ctx, command=None):
         await ctx.send(f"Loop stopped")
         last_merge_request_checker.cancel()
     else:
-        await ctx.send("Unknown command\nAvailable commands: -r --restart restart, -s --stop stop, -i --info info")
+        await ctx.send("Unknown command\nAvailable commands: -r restart, -s stop")
 
 
-@bot.command()
-async def blague(ctx, kind=None):
-    """Display a random joke"""
+@bot.command(name="joke", aliases=["blague"])
+async def display_random_joke(ctx, kind="global"):
+    """
+    Displays a random joke
+    """
     if kind not in {t.value for t in BlagueType}:
         joke = await blagues.random(disallow=[BlagueType.LIMIT, BlagueType.BEAUF, BlagueType.DARK])
         new_joke = await ctx.send(joke.joke)
@@ -111,7 +100,7 @@ async def on_ready():
 async def last_merge_request_checker():
     """Check for new merge requests"""
 
-    global previous_last_merge_request
+    global previous_last_merge_request_id
 
     gl_repo = Gitlab(private_token=GITLAB_TOKEN).groups.get(GITLAB_REPO_ID)
     merge_requests = gl_repo.mergerequests.list(state="opened", get_all=True)
@@ -119,13 +108,13 @@ async def last_merge_request_checker():
         (mr for mr in merge_requests if mr.author["username"] not in {"Cafeine42", "BonaventureEleonore"}),
         key=lambda mr: mr.iid)
 
-    if previous_last_merge_request is None:
-        previous_last_merge_request = last_merge_request.id
+    if previous_last_merge_request_id is None:
+        previous_last_merge_request_id = last_merge_request.id
         return
 
-    if last_merge_request.id <= previous_last_merge_request:
+    if last_merge_request.id <= previous_last_merge_request_id:
         return
-    previous_last_merge_request = last_merge_request.id
+    previous_last_merge_request_id = last_merge_request.id
 
     channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
 
@@ -142,7 +131,9 @@ async def last_merge_request_checker():
         embed.add_field(name="Lien Jira", value=f"[BOBY-{mr_jira_id}]({JIRA_URL}-{mr_jira_id})", inline=True)
 
     if last_merge_request.target_branch:
-        embed.add_field(name="Branche cible", value=f"[`{last_merge_request.target_branch}`]({GITLAB_REPO_URL}/tree/{last_merge_request.target_branch})", inline=True)
+        embed.add_field(name="Branche cible",
+                        value=f"[`{last_merge_request.target_branch}`]({GITLAB_REPO_URL}/tree/{last_merge_request.target_branch})",
+                        inline=True)
 
     if last_merge_request.labels:
         embed.add_field(name="Labels", value=' • '.join(label for label in last_merge_request.labels), inline=True)
