@@ -84,10 +84,9 @@ async def loop(ctx, command=None):
 @bot.command()
 async def blague(ctx, kind=None):
     """Display a random joke"""
-    if kind is None or kind not in {t.value for t in BlagueType}:
+    if kind not in {t.value for t in BlagueType}:
         joke = await blagues.random(disallow=[BlagueType.LIMIT, BlagueType.BEAUF, BlagueType.DARK])
         await ctx.send(joke.joke)
-
     else:
         joke = await blagues.random_categorized(kind)
         await ctx.send(joke.joke)
@@ -99,7 +98,12 @@ async def blague(ctx, kind=None):
 @bot.listen()
 async def on_ready():
     """Start the tasks loop when the bot is ready"""
-    last_merge_request_checker.start()
+    print(f"{bot.user} is connected to the following guilds:")
+    for guild in bot.guilds:
+        print(f"{guild.name}(id: {guild.id})")
+
+    if not last_merge_request_checker.is_running():
+        last_merge_request_checker.start()
 
 
 @tasks.loop(seconds=8)
