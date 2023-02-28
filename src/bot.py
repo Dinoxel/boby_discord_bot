@@ -24,11 +24,15 @@ GITLAB_REPO_URL = os.getenv("GITLAB_REPO_URL")
 
 JIRA_URL = os.getenv("JIRA_URL")
 
+IS_DEBUG_MODE = os.getenv("IS_DEBUG_MODE", False)
+
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
 
+command_prefix = "$"
+
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="$", intents=intents)
+bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
 previous_last_merge_request_id = None
 
@@ -38,17 +42,15 @@ async def display_jira_tickets(ctx, *tickets):
     """
     Displays selected Jira tickets
     """
-    tickets = list(dict.fromkeys(tickets))
-    embed = discord.Embed(title="Jira Tickets", color=0x0052cc)
+
+    embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
 
     if not tickets:
-        embed.add_field(name="", value="No tickets provided", inline=False)
-
-    for ticket_id in tickets:
-        if ticket_id.isdigit():
-            embed.add_field(name="", value=f"[BOBY-{ticket_id}]({JIRA_URL}-{ticket_id})", inline=False)
-
-    await ctx.send(embed=embed)
+        embed.add_field(name="", value="No ticket provided", inline=False)
+        await ctx.send(embed=embed)
+    elif all(not ticket_id.isdigit() for ticket_id in tickets):
+        embed.add_field(name="", value="No ticket numbers found", inline=False)
+        await ctx.send(embed=embed)
 
 
 @bot.command(name="loop")
@@ -91,7 +93,7 @@ async def on_ready():
     for guild in bot.guilds:
         print(f"\t{guild.name}(id: {guild.id})")
 
-    if not last_merge_request_checker.is_running():
+    if not last_merge_request_checker.is_running() and not IS_DEBUG_MODE:
         print("Starting last_merge_request_checker task loop...")
         last_merge_request_checker.start()
 
@@ -116,8 +118,6 @@ async def last_merge_request_checker():
         return
     previous_last_merge_request_id = last_merge_request.id
 
-    channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
-
     side_color = discord.Color.red() if last_merge_request.has_conflicts else discord.Color.green()
     mr_author = last_merge_request.author["name"].replace("-", " ").replace("_", " ")
     mr_author = re.sub(r"(\w)([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
@@ -141,7 +141,31 @@ async def last_merge_request_checker():
     if last_merge_request.has_conflicts:
         embed.add_field(name="⚠️ Merge Conflicts ⚠️", value="", inline=True)
 
+    channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
     await channel.send(embed=embed, content=f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request.iid}")
+
+
+@bot.listen()
+async def on_message(message):
+    """Check for Jira tickets in messages"""
+    available_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
+    message_checker = "\\" + command_prefix + "(?:" + "|".join(available_commands) + r") ([\d ]+)(?=\D|$)"
+    tickets = re.findall(message_checker, message.content)
+
+    if tickets:
+        embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
+        for group_num, tickets_group in enumerate(tickets, 1):
+            tickets_group = tickets_group.strip().split(" ")
+            unique_tickets = list(dict.fromkeys(tickets_group))
+
+            embed.add_field(name=f"Groupe {group_num}" if len(tickets) > 1 else "",
+                            value="".join(
+                                f"⦁ [BOBY-{ticket_id}]({JIRA_URL}-{ticket_id})\n" for ticket_id in unique_tickets if
+                                ticket_id.isdigit()),
+                            inline=False)
+
+        channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
+        await channel.send(embed=embed)
 
 
 if __name__ == "__main__":
