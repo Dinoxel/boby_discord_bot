@@ -162,7 +162,7 @@ async def on_message(message):
                             value="".join(
                                 f"⦁ [BOBY-{ticket_id}]({JIRA_URL}-{ticket_id})\n" for ticket_id in unique_tickets if
                                 ticket_id.isdigit()),
-                            inline=False)
+                            inline=True)
 
         channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
         await channel.send(embed=embed)
