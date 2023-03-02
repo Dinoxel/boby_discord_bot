@@ -59,7 +59,7 @@ async def loop_manager(ctx, command=None):
     Manages the loop that check for new merge requests
     """
     if command is None:
-        await ctx.send(last_merge_request_checker.get_task())
+        await ctx.send("No command provided\nAvailable commands: -r restart, -s stop")
     elif command in {"-r", "restart"}:
         await ctx.send(f"Loop restarted")
         last_merge_request_checker.start()
@@ -126,8 +126,9 @@ async def last_merge_request_checker():
     embed.set_thumbnail(url=last_merge_request.author["avatar_url"])
     embed.add_field(name="", value=last_merge_request.title, inline=False)
 
-    mr_jira_id = re.search(r"^BOBY-(\d+)", last_merge_request.source_branch).groups()[0]
+    mr_jira_id = re.search(r"^BOBY-(\d+)", last_merge_request.source_branch)
     if mr_jira_id:
+        mr_jira_id = mr_jira_id.groups()[0]
         embed.add_field(name="Lien Jira", value=f"[BOBY-{mr_jira_id}]({JIRA_URL}-{mr_jira_id})", inline=True)
 
     if last_merge_request.target_branch:
