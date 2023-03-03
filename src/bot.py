@@ -30,7 +30,7 @@ GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}' \
 
 JIRA_URL = os.getenv("JIRA_URL")
 
-IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE")) or False
+IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
