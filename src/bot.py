@@ -3,14 +3,18 @@ from discord.ext import commands, tasks
 
 from blagues_api import BlaguesAPI, BlagueType
 
-from gitlab import Gitlab
-
 import os
 import re
 
 from dotenv import load_dotenv, find_dotenv
 
 import asyncio
+import aiohttp
+
+import platform
+
+if platform.system() == 'Windows':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 load_dotenv(find_dotenv())
 
@@ -21,10 +25,13 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
 GITLAB_REPO_ID = os.getenv("GITLAB_REPO_ID")
 GITLAB_REPO_URL = os.getenv("GITLAB_REPO_URL")
+GITLAB_PROJECT_ID = os.getenv("GITLAB_PROJECT_ID")
+GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}' \
+                 f'/merge_requests?state=opened&per_page=10&private_token={GITLAB_TOKEN}'
 
 JIRA_URL = os.getenv("JIRA_URL")
 
-IS_DEBUG_MODE = os.getenv("IS_DEBUG_MODE", False)
+IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE"))
 
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
@@ -101,49 +108,62 @@ async def on_ready():
 @tasks.loop(seconds=8)
 async def last_merge_request_checker():
     """Check for new merge requests"""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(GITLAB_API_URL) as resp:
+            global previous_last_merge_request_id
+            if resp.status != 200:
+                print(f"{resp.status} Error while fetching data from Gitlab")
+                return
+            merge_requests = await resp.json()
 
-    global previous_last_merge_request_id
+            last_merge_request = max(
+                (mr for mr in merge_requests if mr["author"]["username"] not in {"Cafeine42", "BonaventureEleonore"}),
+                key=lambda mr: mr["iid"])
 
-    gl_repo = Gitlab(private_token=GITLAB_TOKEN).groups.get(GITLAB_REPO_ID)
-    merge_requests = gl_repo.mergerequests.list(state="opened", get_all=True)
-    last_merge_request = max(
-        (mr for mr in merge_requests if mr.author["username"] not in {"Cafeine42", "BonaventureEleonore"}),
-        key=lambda mr: mr.iid)
+            if previous_last_merge_request_id is None:
+                previous_last_merge_request_id = last_merge_request["id"]
+                return
 
-    if previous_last_merge_request_id is None:
-        previous_last_merge_request_id = last_merge_request.id
-        return
+            if last_merge_request["id"] <= previous_last_merge_request_id:
+                return
 
-    if last_merge_request.id <= previous_last_merge_request_id:
-        return
-    previous_last_merge_request_id = last_merge_request.id
+            previous_last_merge_request_id = last_merge_request["id"]
 
-    side_color = discord.Color.red() if last_merge_request.has_conflicts else discord.Color.green()
-    mr_author = last_merge_request.author["name"].replace("-", " ").replace("_", " ")
-    mr_author = re.sub(r"(\w)([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
+            side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
+            mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
+            mr_author = re.sub(r"(\w)([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
 
-    embed = discord.Embed(title=mr_author, color=side_color)
-    embed.set_thumbnail(url=last_merge_request.author["avatar_url"])
-    embed.add_field(name="", value=last_merge_request.title, inline=False)
+            embed = discord.Embed(title=mr_author, color=side_color)
+            embed.set_thumbnail(url=last_merge_request["author"]["avatar_url"])
+            embed.add_field(name="",
+                            value=last_merge_request["title"],
+                            inline=False)
 
-    mr_jira_id = re.search(r"^BOBY-(\d+)", last_merge_request.source_branch)
-    if mr_jira_id:
-        mr_jira_id = mr_jira_id.groups()[0]
-        embed.add_field(name="Lien Jira", value=f"[BOBY-{mr_jira_id}]({JIRA_URL}-{mr_jira_id})", inline=True)
+            mr_jira_id = re.search(r"^BOBY-(\d+)", last_merge_request['source_branch'])
+            if mr_jira_id:
+                mr_jira_id = mr_jira_id.groups()[0]
+                embed.add_field(name="Lien Jira",
+                                value=f"[BOBY-{mr_jira_id}]({JIRA_URL}-{mr_jira_id})",
+                                inline=True)
 
-    if last_merge_request.target_branch:
-        embed.add_field(name="Branche cible",
-                        value=f"[`{last_merge_request.target_branch}`]({GITLAB_REPO_URL}/tree/{last_merge_request.target_branch})",
-                        inline=True)
+            if last_merge_request['target_branch']:
+                embed.add_field(name="Branche cible",
+                                value=f"[`{last_merge_request['target_branch']}`]({GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']})",
+                                inline=True)
 
-    if last_merge_request.labels:
-        embed.add_field(name="Labels", value=' • '.join(label for label in last_merge_request.labels), inline=True)
+            if last_merge_request['labels']:
+                embed.add_field(name="Labels",
+                                value=' • '.join(label for label in last_merge_request['labels']),
+                                inline=True)
 
-    if last_merge_request.has_conflicts:
-        embed.add_field(name="⚠️ Merge Conflicts ⚠️", value="", inline=True)
+            if last_merge_request['has_conflicts']:
+                embed.add_field(name="⚠️ Merge Conflicts ⚠️",
+                                value="",
+                                inline=True)
 
-    channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
-    await channel.send(embed=embed, content=f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request.iid}")
+            channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
+            await channel.send(embed=embed,
+                               content=f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}")
 
 
 @bot.listen()
