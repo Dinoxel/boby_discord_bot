@@ -132,7 +132,7 @@ async def last_merge_request_checker():
 
             side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
             mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
-            mr_author = re.sub(r"(\w)([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
+            mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
 
             embed = discord.Embed(title=mr_author, color=side_color)
             embed.set_thumbnail(url=last_merge_request["author"]["avatar_url"])
