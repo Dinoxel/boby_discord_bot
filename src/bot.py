@@ -23,7 +23,6 @@ GUILD_ID = int(os.getenv("GUILD_ID"))
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
-GITLAB_REPO_ID = os.getenv("GITLAB_REPO_ID")
 GITLAB_REPO_URL = os.getenv("GITLAB_REPO_URL")
 GITLAB_PROJECT_ID = os.getenv("GITLAB_PROJECT_ID")
 GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}' \
@@ -31,7 +30,7 @@ GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}' \
 
 JIRA_URL = os.getenv("JIRA_URL")
 
-IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE"))
+IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE")) or False
 
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
