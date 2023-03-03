@@ -126,6 +126,8 @@ async def last_merge_request_checker():
             if last_merge_request["id"] <= previous_last_merge_request_id:
                 return
 
+            print(f"New merge request {last_merge_request['id']}: {last_merge_request['title']}")
+
             previous_last_merge_request_id = last_merge_request["id"]
 
             side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
