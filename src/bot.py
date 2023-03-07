@@ -35,7 +35,7 @@ IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
 
-command_prefix = "$"
+command_prefix = ">" if IS_DEBUG_MODE else "$"
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=command_prefix, intents=intents)
@@ -158,7 +158,7 @@ async def last_merge_request_checker():
                                 inline=True)
 
             if last_merge_request['has_conflicts']:
-                embed.add_field(name="⚠️ Merge Conflicts ⚠️",
+                embed.add_field(name=f"⚠️ [Merge Conflicts]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts) ⚠️",
                                 value="",
                                 inline=True)
 
