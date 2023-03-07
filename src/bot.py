@@ -142,12 +142,21 @@ async def list_merge_requests(ctx, *arguments):
                 key=lambda mr: mr["iid"])
 
             arguments = list(arguments)
+            no_mr_text = f"No merge requests"
+
             if arguments:
                 if "conflicts" in arguments:
                     arguments.remove("conflicts")
                     merge_requests = [mr for mr in merge_requests if mr["has_conflicts"]]
+                    no_mr_text += " with conflicts"
 
                 merge_requests = [mr for mr in merge_requests if (mr["target_branch"] in arguments if arguments else True)]
+                if arguments:
+                    no_mr_text += f" found on `{'`, `'.join(arguments)}`"
+
+                if not merge_requests:
+                    await ctx.send(no_mr_text)
+                    return
 
             sorted_merge_requests = {}
             for mr in merge_requests:
