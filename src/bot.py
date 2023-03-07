@@ -25,8 +25,10 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
 GITLAB_REPO_URL = os.getenv("GITLAB_REPO_URL")
 GITLAB_PROJECT_ID = os.getenv("GITLAB_PROJECT_ID")
-GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}' \
-                 f'/merge_requests?state=opened&per_page=10&private_token={GITLAB_TOKEN}'
+GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}/merge_requests' \
+                 f'?state=opened' \
+                 f'&per_page=250' \
+                 f'&private_token={GITLAB_TOKEN}'
 
 JIRA_URL = os.getenv("JIRA_URL")
 
@@ -104,6 +106,53 @@ async def on_ready():
         last_merge_request_checker.start()
 
 
+@bot.command(name="git", aliases=["g", "gitlab", "mr", "merge_request", "merge_requests", "mrs"])
+async def list_merge_requests(ctx, *params):
+    """
+    List all current merge requests
+    """
+    params = list(params)
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(GITLAB_API_URL) as resp:
+            global previous_last_merge_request_id
+            if resp.status != 200:
+                print(f"{resp.status} Error while fetching data from Gitlab")
+                return
+
+            unconcerned_users = {"Cafeine42", "BonaventureEleonore", "guillaumeharari", "AlexSarrazin"}
+            merge_requests = await resp.json()
+            merge_requests = sorted(
+                (mr for mr in merge_requests if mr["author"]["username"] not in unconcerned_users),
+                key=lambda mr: mr["iid"])
+
+            if params:
+                if "conflicts" in params:
+                    params.remove("conflicts")
+                    merge_requests = [mr for mr in merge_requests if mr["has_conflicts"]]
+
+                merge_requests = [mr for mr in merge_requests if (mr["target_branch"] in params if params else True)]
+
+            sorted_merge_requests = {}
+            for mr in merge_requests:
+                if mr["author"]["username"] not in sorted_merge_requests:
+                    sorted_merge_requests[mr["author"]["username"]] = []
+                sorted_merge_requests[mr["author"]["username"]].append(mr)
+
+            for mr_user, mrs in sorted_merge_requests.items():
+                embed = discord.Embed(title=f"{mr_user} (total: {len(mrs)})",
+                                      color=0x0052cc)
+
+                for mr in mrs:
+                    mrs_list = f"⦁ [{mr['iid']}]({mr['web_url']}) -> " \
+                               f"[`{mr['target_branch']}`]({GITLAB_REPO_URL}/tree/{mr['target_branch']})"
+                    embed.add_field(name=f"{mr['title']}",
+                                    value=mrs_list,
+                                    inline=False)
+
+                await ctx.send(embed=embed)
+
+
 @tasks.loop(seconds=8)
 async def last_merge_request_checker():
     """Check for new merge requests"""
@@ -125,8 +174,6 @@ async def last_merge_request_checker():
 
             if last_merge_request["id"] <= previous_last_merge_request_id:
                 return
-
-            print(f"New merge request {last_merge_request['id']}: {last_merge_request['title']}")
 
             previous_last_merge_request_id = last_merge_request["id"]
 
@@ -158,9 +205,10 @@ async def last_merge_request_checker():
                                 inline=True)
 
             if last_merge_request['has_conflicts']:
-                embed.add_field(name=f"⚠️ [Merge Conflicts]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts) ⚠️",
-                                value="",
-                                inline=True)
+                embed.add_field(
+                    name=f"⚠️ [Merge Conflict]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts) ⚠️",
+                    value="",
+                    inline=True)
 
             channel = bot.get_guild(GUILD_ID).get_channel(CHANNEL_ID)
             await channel.send(embed=embed,
@@ -169,18 +217,22 @@ async def last_merge_request_checker():
 
 @bot.listen()
 async def on_message(message):
-    """Check for Jira tickets in messages"""
-    available_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
-    message_checker = "\\" + command_prefix + "(?:" + "|".join(available_commands) + r") ([\d ]+)(?=\D|$)"
-    tickets = re.findall(message_checker, message.content)
+    """
+    Check for Jira and Git tickets in messages
+    """
+    if message.author.id == self.user.id:
+        return
 
-    if tickets:
+    jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
+    jira_message_checker = "\\" + command_prefix + "(?:" + "|".join(jira_commands) + r") ([\d ]+)(?=\D|$)"
+    jira_tickets = re.findall(jira_message_checker, message.content)
+    if jira_tickets:
         embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
-        for group_num, tickets_group in enumerate(tickets, 1):
+        for group_num, tickets_group in enumerate(jira_tickets, 1):
             tickets_group = tickets_group.strip().split(" ")
             unique_tickets = list(dict.fromkeys(tickets_group))
 
-            embed.add_field(name=f"Groupe {group_num}" if len(tickets) > 1 else "",
+            embed.add_field(name=f"Groupe {group_num}" if len(jira_tickets) > 1 else "",
                             value="".join(
                                 f"⦁ [BOBY-{ticket_id}]({JIRA_URL}-{ticket_id})\n" for ticket_id in unique_tickets if
                                 ticket_id.isdigit()),
