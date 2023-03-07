@@ -49,6 +49,10 @@ previous_last_merge_request_id = None
 async def display_jira_tickets(ctx, *tickets):
     """
     Displays selected Jira tickets
+
+    :param ctx: The context of the command
+    :param tickets: The tickets to display
+    :return: The embed containing Jira tickets
     """
 
     embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
@@ -65,6 +69,11 @@ async def display_jira_tickets(ctx, *tickets):
 async def loop_manager(ctx, command=None):
     """
     Manages the loop that check for new merge requests
+
+    :param ctx: The context of the command
+    :param command: The command to execute
+        :restart, -r: Restarts the Merge Request loop
+        :stop, -s: Stops the Merge Request loop
     """
     if command is None:
         await ctx.send("No command provided\nAvailable commands: -r restart, -s stop")
@@ -82,6 +91,9 @@ async def loop_manager(ctx, command=None):
 async def display_random_joke(ctx, kind="global"):
     """
     Displays a random joke
+
+    :param ctx: The context of the command
+    :param kind: The kind of joke to display (global, dev, dark, limit, beauf, blondes)
     """
     if kind not in {t.value for t in BlagueType}:
         joke = await blagues.random(disallow=[BlagueType.LIMIT, BlagueType.BEAUF, BlagueType.DARK])
@@ -106,13 +118,16 @@ async def on_ready():
         last_merge_request_checker.start()
 
 
-@bot.command(name="git", aliases=["g", "gitlab", "mr", "merge_request", "merge_requests", "mrs"])
-async def list_merge_requests(ctx, *params):
+@bot.command(name="git", aliases=["g", "gitlab"])
+async def list_merge_requests(ctx, *arguments):
     """
     List all current merge requests
-    """
-    params = list(params)
 
+    :param ctx: The context of the command
+    :param arguments: (default: all) The parameters to filter the merge requests (both can be used at the same time)
+        :conflicts -> Display only merge requests with conflicts
+        :<branch_name> -> Display only merge requests for the given branch
+    """
     async with aiohttp.ClientSession() as session:
         async with session.get(GITLAB_API_URL) as resp:
             global previous_last_merge_request_id
@@ -126,18 +141,22 @@ async def list_merge_requests(ctx, *params):
                 (mr for mr in merge_requests if mr["author"]["username"] not in unconcerned_users),
                 key=lambda mr: mr["iid"])
 
-            if params:
-                if "conflicts" in params:
-                    params.remove("conflicts")
+            arguments = list(arguments)
+            if arguments:
+                if "conflicts" in arguments:
+                    arguments.remove("conflicts")
                     merge_requests = [mr for mr in merge_requests if mr["has_conflicts"]]
 
-                merge_requests = [mr for mr in merge_requests if (mr["target_branch"] in params if params else True)]
+                merge_requests = [mr for mr in merge_requests if (mr["target_branch"] in arguments if arguments else True)]
 
             sorted_merge_requests = {}
             for mr in merge_requests:
-                if mr["author"]["username"] not in sorted_merge_requests:
-                    sorted_merge_requests[mr["author"]["username"]] = []
-                sorted_merge_requests[mr["author"]["username"]].append(mr)
+                mr_author = mr["author"]["name"].replace("-", " ").replace("_", " ")
+                mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
+
+                if mr_author not in sorted_merge_requests:
+                    sorted_merge_requests[mr_author] = []
+                sorted_merge_requests[mr_author].append(mr)
 
             for mr_user, mrs in sorted_merge_requests.items():
                 embed = discord.Embed(title=f"{mr_user} (total: {len(mrs)})",
@@ -155,7 +174,11 @@ async def list_merge_requests(ctx, *params):
 
 @tasks.loop(seconds=8)
 async def last_merge_request_checker():
-    """Check for new merge requests"""
+    """
+    Check for new merge requests
+
+    :return: The embed containing the new merge request
+    """
     async with aiohttp.ClientSession() as session:
         async with session.get(GITLAB_API_URL) as resp:
             global previous_last_merge_request_id
@@ -219,8 +242,11 @@ async def last_merge_request_checker():
 async def on_message(message):
     """
     Check for Jira tickets in messages
+
+    :param message: The message to check
+    :return: The embed containing the Jira tickets
     """
-    if message.author.id == self.user.id:
+    if message.author.bot:
         return
 
     jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
