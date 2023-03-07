@@ -218,7 +218,7 @@ async def last_merge_request_checker():
 @bot.listen()
 async def on_message(message):
     """
-    Check for Jira and Git tickets in messages
+    Check for Jira tickets in messages
     """
     if message.author.id == self.user.id:
         return
