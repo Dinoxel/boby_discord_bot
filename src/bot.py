@@ -238,7 +238,7 @@ async def last_merge_request_checker():
 
             if last_merge_request['has_conflicts']:
                 embed.add_field(
-                    name=f"⚠️ [Merge Conflict]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts) ⚠️",
+                    name=f"⚠️ [Merge Conflict]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts) ⚠️",
                     value="",
                     inline=True)
 
