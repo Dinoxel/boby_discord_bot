@@ -275,7 +275,7 @@ async def last_merge_request_checker():
                 previous_last_merge_request_id = last_merge_request["id"]
                 return
 
-            if last_merge_request["id"] >= previous_last_merge_request_id:
+            if last_merge_request["id"] <= previous_last_merge_request_id:
                 return
 
             previous_last_merge_request_id = last_merge_request["id"]
