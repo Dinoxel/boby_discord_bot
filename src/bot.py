@@ -101,9 +101,12 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
         await ctx.send("No command provided.")
 
     elif ctx.author.id != DISCORD_ADMIN_ROLE_ID:
-        await ctx.send("You are not allowed to use this command.")
+        print(ctx.author.id, DISCORD_ADMIN_ROLE_ID)
+        await ctx.send("You are not allowed to access the Bot manager panel.")
 
     elif command in {"-history", "-h"}:
+        if sub_command is None:
+            await ctx.send("No history command provided.")
         if sub_command in {"-delete", "-d"}:
             try:
                 if parameters:
@@ -119,6 +122,8 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
                             break
             except discord.errors.NotFound:
                 print("Message not found.")
+        else:
+            await ctx.send("Unknown history command provided.")
     elif command in {"-gitlab", "-g"}:
         if sub_command is None:
             await ctx.send(f"Excluded users:\n ⦁ " + '\n⦁ '.join(gitlab_excluded_users))
