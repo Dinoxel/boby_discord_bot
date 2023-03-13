@@ -294,7 +294,7 @@ async def last_merge_request_checker():
             if mr_jira_id:
                 mr_jira_id = mr_jira_id.groups()[0]
                 embed.add_field(name="Lien Jira",
-                                value=f"[{JIRA_PROJECT}-{mr_jira_id}]({JIRA_URL}-{mr_jira_id})",
+                                value=f"[{JIRA_PROJECT}-{mr_jira_id}]({JIRA_URL}{JIRA_PROJECT}-{mr_jira_id})",
                                 inline=True)
 
             if last_merge_request['target_branch']:
@@ -354,8 +354,13 @@ async def on_message(message):
                 ticket_summary = await jira_resp.json()
                 ticket_summary = ticket_summary['issues'][0]['fields']['summary']
 
-                embed = discord.Embed(title=f"{JIRA_PROJECT}-{jira_ticket}", color=0x0052cc)
-                embed.add_field(name="", value=ticket_summary)
+                embed = discord.Embed(title="Ticket Jira", color=0x0052cc)
+                embed.add_field(name="",
+                                value=f"⦁ [{JIRA_PROJECT}-{jira_ticket}]({JIRA_URL}{JIRA_PROJECT}-{jira_ticket})",
+                                inline=False)
+                embed.add_field(name="",
+                                value=ticket_summary,
+                                inline=False)
 
     elif jira_tickets:
         embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
@@ -365,7 +370,7 @@ async def on_message(message):
 
             embed.add_field(name=f"Groupe {group_num}" if len(jira_tickets) > 1 else "",
                             value="".join(
-                                f"⦁ [{JIRA_PROJECT}-{ticket_id}]({JIRA_URL}-{ticket_id})\n" for ticket_id in
+                                f"⦁ [{JIRA_PROJECT}-{ticket_id}]({JIRA_URL}{JIRA_PROJECT}-{ticket_id})\n" for ticket_id in
                                 unique_tickets if
                                 ticket_id.isdigit()),
                             inline=True)
