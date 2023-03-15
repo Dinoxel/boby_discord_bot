@@ -309,8 +309,8 @@ async def last_merge_request_checker():
 
             if last_merge_request['has_conflicts']:
                 embed.add_field(
-                    name=f"⚠️ [Merge Conflict]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts) ⚠️",
-                    value="",
+                    name="⚠️ Merge Conflict ⚠️",
+                    value=f"[lien vers conflit]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts)",
                     inline=True)
 
             channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
