@@ -36,11 +36,12 @@ GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}/merge_
 
 JIRA_MAIL = os.getenv("JIRA_MAIL")
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
-JIRA_PROJECT = os.getenv("JIRA_PROJECT")
+JIRA_KEY = os.getenv("JIRA_KEY")
+JIRA_OLD_KEY = os.getenv("JIRA_OLD_KEY")
 JIRA_APP_NAME = os.getenv("JIRA_APP_NAME")
 
 JIRA_URL = f"https://{JIRA_APP_NAME}.atlassian.net/browse/"
-JIRA_API_URL = f"https://{JIRA_APP_NAME}.atlassian.net/rest/api/3/search?jql=PROJECT = {JIRA_PROJECT} AND KEY IN"
+JIRA_API_URL = f"https://{JIRA_APP_NAME}.atlassian.net/rest/api/3/search?jql=PROJECT = {JIRA_KEY} AND KEY IN"
 JIRA_AUTH = aiohttp.BasicAuth(JIRA_MAIL, JIRA_TOKEN)
 JIRA_HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
 
@@ -290,11 +291,11 @@ async def last_merge_request_checker():
                             value=last_merge_request["title"],
                             inline=False)
 
-            mr_jira_id = re.search(fr"^{JIRA_PROJECT}-(\d+)", last_merge_request['source_branch'])
+            mr_jira_id = re.search(fr"^(?:{JIRA_KEY}|{JIRA_OLD_KEY}) -(\d+)", last_merge_request['source_branch'])
             if mr_jira_id:
                 mr_jira_id = mr_jira_id.groups()[0]
                 embed.add_field(name="Lien Jira",
-                                value=f"[{JIRA_PROJECT}-{mr_jira_id}]({JIRA_URL}{JIRA_PROJECT}-{mr_jira_id})",
+                                value=f"[{JIRA_KEY}-{mr_jira_id}]({JIRA_URL}{JIRA_KEY}-{mr_jira_id})",
                                 inline=True)
 
             if last_merge_request['target_branch']:
@@ -341,7 +342,7 @@ async def on_message(message):
     if len(jira_tickets) == 1 and len(jira_tickets[0].split()) == 1:
         jira_ticket = jira_tickets[0].strip()
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{JIRA_API_URL} ({JIRA_PROJECT}-{jira_ticket})",
+            async with session.get(f"{JIRA_API_URL} ({JIRA_KEY}-{jira_ticket})",
                                    auth=JIRA_AUTH,
                                    headers=JIRA_HEADERS) as jira_resp:
                 if jira_resp.status != 200:
@@ -356,7 +357,7 @@ async def on_message(message):
 
                 embed = discord.Embed(title="Ticket Jira", color=0x0052cc)
                 embed.add_field(name="",
-                                value=f"⦁ [{JIRA_PROJECT}-{jira_ticket}]({JIRA_URL}{JIRA_PROJECT}-{jira_ticket})",
+                                value=f"⦁ [{JIRA_KEY}-{jira_ticket}]({JIRA_URL}{JIRA_KEY}-{jira_ticket})",
                                 inline=False)
                 embed.add_field(name="",
                                 value=ticket_summary,
@@ -370,7 +371,7 @@ async def on_message(message):
 
             embed.add_field(name=f"Groupe {group_num}" if len(jira_tickets) > 1 else "",
                             value="".join(
-                                f"⦁ [{JIRA_PROJECT}-{ticket_id}]({JIRA_URL}{JIRA_PROJECT}-{ticket_id})\n" for ticket_id in
+                                f"⦁ [{JIRA_KEY}-{ticket_id}]({JIRA_URL}{JIRA_KEY}-{ticket_id})\n" for ticket_id in
                                 unique_tickets if
                                 ticket_id.isdigit()),
                             inline=True)
