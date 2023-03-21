@@ -291,7 +291,7 @@ async def last_merge_request_checker():
                             value=last_merge_request["title"],
                             inline=False)
 
-            mr_jira_id = re.search(fr"^(?:{JIRA_KEY}|{JIRA_OLD_KEY}) -(\d+)", last_merge_request['source_branch'])
+            mr_jira_id = re.search(fr"(?i)^(?:{JIRA_KEY}|{JIRA_OLD_KEY})-(\d+)", last_merge_request['source_branch'])
             if mr_jira_id:
                 mr_jira_id = mr_jira_id.groups()[0]
                 embed.add_field(name="Lien Jira",
