@@ -1,4 +1,5 @@
 import discord
+import requests
 from discord.ext import commands, tasks
 
 from blagues_api import BlaguesAPI, BlagueType
@@ -44,6 +45,14 @@ JIRA_URL = f"https://{JIRA_APP_NAME}.atlassian.net/browse/"
 JIRA_API_URL = f"https://{JIRA_APP_NAME}.atlassian.net/rest/api/3/search?jql=PROJECT = {JIRA_KEY} AND KEY IN"
 JIRA_AUTH = aiohttp.BasicAuth(JIRA_MAIL, JIRA_TOKEN)
 JIRA_HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
+
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_REPO_OWNER = os.environ.get("GITHUB_REPO_OWNER")
+GITHUB_REPO_WORKFLOW = os.environ.get("GITHUB_REPO_WORKFLOW")
+GITHUB_REPO_URL = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_WORKFLOW}"
+GITHUB_WORKFLOW_EVENT_TYPE = os.getenv("GITHUB_WORKFLOW_EVENT_TYPE")
+GITHUB_WORKFLOW_BODY = {"event_type": GITHUB_WORKFLOW_EVENT_TYPE}
+GITHUB_WORKFLOW_HEADERS = {"Authorization": "Bearer " + GITHUB_TOKEN, "Accept": "application/vnd.github.v3+json"}
 
 IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 
@@ -101,6 +110,30 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
     if command is None:
         await ctx.send("No command provided.")
 
+    elif command in {"-bot", "-b"}:
+        if sub_command is None:
+            await ctx.send("No bot command provided.")
+        elif sub_command in {"-start", "-s"}:
+            if "qa" in parameters:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url=f"{GITHUB_REPO_URL}/actions/runs",
+                                           headers=GITHUB_WORKFLOW_HEADERS) as workflow_runs:
+                        last_workflow_run_status = await workflow_runs.json()
+                        last_workflow_run_status = last_workflow_run_status["workflow_runs"][0]["status"]
+
+                        if last_workflow_run_status == "completed":
+                            await ctx.send("Démarrage du bot Excel pour la QA")
+                            requests.post(url=f"{GITHUB_REPO_URL}/dispatches",
+                                          json=GITHUB_WORKFLOW_BODY,
+                                          headers=GITHUB_WORKFLOW_HEADERS)
+                        else:
+                            await ctx.send("Le bot Excel pour la QA est déjà en cours d'exécution.")
+
+            else:
+                await ctx.send(f"Le bot {parameters} n'existe pas.")
+        else:
+            await ctx.send("Unknown bot command provided.")
+
     elif ctx.author.id != DISCORD_ADMIN_ROLE_ID:
         print(ctx.author.id, DISCORD_ADMIN_ROLE_ID)
         await ctx.send("You are not allowed to access the Bot manager panel.")
@@ -125,6 +158,7 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
                 print("Message not found.")
         else:
             await ctx.send("Unknown history command provided.")
+
     elif command in {"-gitlab", "-g"}:
         if sub_command is None:
             await ctx.send(f"Excluded users:\n ⦁ " + '\n⦁ '.join(gitlab_excluded_users))
