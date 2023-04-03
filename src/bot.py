@@ -57,7 +57,7 @@ bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
 previous_last_merge_request_id = None
 
-gitlab_excluded_users = {"Cafeine42", "BonaventureEleonore", "guillaumeharari", "AlexSarrazin"}
+gitlab_excluded_users = {"Cafeine42", "BonaventureEleonore", "guillaumeharari"}
 last_merge_request_users = {"Cafeine42", "BonaventureEleonore"}
 
 
