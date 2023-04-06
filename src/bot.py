@@ -319,11 +319,10 @@ async def last_merge_request_checker():
             mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
             mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
 
-            embed = discord.Embed(title=mr_author, color=side_color)
+            embed = discord.Embed(title=mr_author,
+                                  color=side_color,
+                                  description=last_merge_request["title"])
             embed.set_thumbnail(url=last_merge_request["author"]["avatar_url"])
-            embed.add_field(name="",
-                            value=last_merge_request["title"],
-                            inline=False)
 
             mr_jira_id = re.search(fr"(?i)^(?:{JIRA_KEY}|{JIRA_OLD_KEY})-(\d+)", last_merge_request['source_branch'])
             if mr_jira_id:
@@ -366,7 +365,8 @@ async def on_message(message):
 
     if message.author.id == DISCORD_ADMIN_ROLE_ID \
             and re.search(fr"^{command_prefix}m(?:anager)? +-h(?:istory)? +-d(?:elete)?",
-                          message.content.strip()) is not None:
+                          message.content.strip()
+                          ) is not None:
         await message.add_reaction('✅')
 
     jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
@@ -389,13 +389,10 @@ async def on_message(message):
                 ticket_summary = await jira_resp.json()
                 ticket_summary = ticket_summary['issues'][0]['fields']['summary']
 
-                embed = discord.Embed(title="Ticket Jira", color=0x0052cc)
-                embed.add_field(name="",
-                                value=f"⦁ [{JIRA_KEY}-{jira_ticket}]({JIRA_URL}{JIRA_KEY}-{jira_ticket})",
-                                inline=False)
-                embed.add_field(name="",
-                                value=ticket_summary,
-                                inline=False)
+                embed = discord.Embed(title=f"{JIRA_KEY}-{jira_ticket}",
+                                      color=0x0052cc,
+                                      url=f"{JIRA_URL}{JIRA_KEY}-{jira_ticket}",
+                                      description=ticket_summary)
 
     elif jira_tickets:
         embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
