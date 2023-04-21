@@ -50,9 +50,9 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 GITHUB_REPO_OWNER = os.environ.get("GITHUB_REPO_OWNER")
 GITHUB_REPO_WORKFLOW = os.environ.get("GITHUB_REPO_WORKFLOW")
 GITHUB_REPO_URL = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_WORKFLOW}"
-GITHUB_WORKFLOW_EVENT_TYPE = os.getenv("GITHUB_WORKFLOW_EVENT_TYPE")
-GITHUB_WORKFLOW_BODY = {"event_type": GITHUB_WORKFLOW_EVENT_TYPE}
 GITHUB_WORKFLOW_HEADERS = {"Authorization": "Bearer " + GITHUB_TOKEN, "Accept": "application/vnd.github.v3+json"}
+GITHUB_WORKFLOW_EVENT_QA = os.environ.get("GITHUB_WORKFLOW_EVENT_QA")
+GITHUB_WORKFLOW_EVENT_SALES = os.environ.get("GITHUB_WORKFLOW_EVENT_SALES")
 
 IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 
@@ -118,16 +118,36 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url=f"{GITHUB_REPO_URL}/actions/runs",
                                            headers=GITHUB_WORKFLOW_HEADERS) as workflow_runs:
-                        last_workflow_run_status = await workflow_runs.json()
-                        last_workflow_run_status = last_workflow_run_status["workflow_runs"][0]["status"]
+                        workflow_runs = await workflow_runs.json()
+                        for workflow_run in workflow_runs["workflow_runs"]:
+                            if workflow_run["display_title"] == GITHUB_WORKFLOW_EVENT_QA:
+                                last_workflow_run_status = workflow_run["status"]
+                                break
 
                         if last_workflow_run_status == "completed":
-                            await ctx.send("Démarrage du bot Excel pour la QA")
                             requests.post(url=f"{GITHUB_REPO_URL}/dispatches",
-                                          json=GITHUB_WORKFLOW_BODY,
+                                          json={"event_type": GITHUB_WORKFLOW_EVENT_QA},
                                           headers=GITHUB_WORKFLOW_HEADERS)
+                            await ctx.send("Démarrage du bot Excel pour la QA")
                         else:
                             await ctx.send("Le bot Excel pour la QA est déjà en cours d'exécution.")
+            elif "sales" in parameters:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url=f"{GITHUB_REPO_URL}/actions/runs",
+                                           headers=GITHUB_WORKFLOW_HEADERS) as workflow_runs:
+                        workflow_runs = await workflow_runs.json()
+                        for workflow_run in workflow_runs["workflow_runs"]:
+                            if workflow_run["display_title"] == GITHUB_WORKFLOW_EVENT_SALES:
+                                last_workflow_run_status = workflow_run["status"]
+                                break
+
+                        if last_workflow_run_status == "completed":
+                            requests.post(url=f"{GITHUB_REPO_URL}/dispatches",
+                                          json={"event_type": GITHUB_WORKFLOW_EVENT_SALES},
+                                          headers=GITHUB_WORKFLOW_HEADERS)
+                            await ctx.send("Démarrage du bot Excel pour le Commerce")
+                        else:
+                            await ctx.send("Le bot Excel pour le Commerce est déjà en cours d'exécution.")
 
             else:
                 await ctx.send(f"Le bot {parameters} n'existe pas.")
@@ -138,9 +158,9 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
         print(ctx.author.id, DISCORD_ADMIN_ROLE_ID)
         await ctx.send("You are not allowed to access the Bot manager panel.")
 
-    elif command in {"-history", "-h"}:
+    elif command in {"-message", "-m"}:
         if sub_command is None:
-            await ctx.send("No history command provided.")
+            await ctx.send("No message command provided.")
         if sub_command in {"-delete", "-d"}:
             try:
                 if parameters:
@@ -157,7 +177,7 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
             except discord.errors.NotFound:
                 print("Message not found.")
         else:
-            await ctx.send("Unknown history command provided.")
+            await ctx.send("Unknown message command provided.")
 
     elif command in {"-gitlab", "-g"}:
         if sub_command is None:
