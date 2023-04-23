@@ -1,16 +1,20 @@
 import discord
-import requests
 from discord.ext import commands, tasks
 
 from blagues_api import BlaguesAPI, BlagueType
 
 import os
 import re
+from functools import reduce
 
 from dotenv import load_dotenv, find_dotenv
 
 import asyncio
 import aiohttp
+import requests
+
+from src.templates import MysqlConnection
+import pandas as pd
 
 import platform
 
@@ -76,17 +80,12 @@ async def display_jira_tickets(ctx, *tickets):
     Displays selected Jira tickets
 
     :param ctx: The context of the command
-    :param tickets: The tickets to display
+    :param tickets: Tickets to display
     :return: The embed containing Jira tickets
     """
-
-    embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
-
-    if not tickets:
+    if len(tickets) == 0:
+        embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
         embed.add_field(name="", value="No ticket provided", inline=False)
-        await ctx.send(embed=embed)
-    elif all(not ticket_id.isdigit() for ticket_id in tickets):
-        embed.add_field(name="", value="No ticket numbers found", inline=False)
         await ctx.send(embed=embed)
 
 
@@ -161,7 +160,7 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
     elif command in {"-message", "-m"}:
         if sub_command is None:
             await ctx.send("No message command provided.")
-        if sub_command in {"-delete", "-d"}:
+        elif sub_command in {"-delete", "-d"}:
             try:
                 if parameters:
                     for message_id in parameters:
@@ -384,53 +383,57 @@ async def on_message(message):
         return
 
     if message.author.id == DISCORD_ADMIN_ROLE_ID \
-            and re.search(fr"^{command_prefix}m(?:anager)? +-h(?:istory)? +-d(?:elete)?",
+            and re.search(fr"^{command_prefix}m(?:anager)? +-m(?:essage)? +-d(?:elete)?",
                           message.content.strip()
                           ) is not None:
         await message.add_reaction('✅')
-
-    jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
-    jira_message_checker = "\\" + command_prefix + "(?:" + "|".join(jira_commands) + r") ([\d ]+)(?=\D|$)"
-    jira_tickets = re.findall(jira_message_checker, message.content)
-
-    if len(jira_tickets) == 1 and len(jira_tickets[0].split()) == 1:
-        jira_ticket = jira_tickets[0].strip()
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{JIRA_API_URL} ({JIRA_KEY}-{jira_ticket})",
-                                   auth=JIRA_AUTH,
-                                   headers=JIRA_HEADERS) as jira_resp:
-                if jira_resp.status != 200:
-                    error_summary = await jira_resp.json()
-                    channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
-                    await channel.send(f"Error {jira_resp.status} while fetching data from Jira\n"
-                                       f"Message: {error_summary['errorMessages'][0]}")
-                    return
-
-                ticket_summary = await jira_resp.json()
-                ticket_summary = ticket_summary['issues'][0]['fields']['summary']
-
-                embed = discord.Embed(title=f"{JIRA_KEY}-{jira_ticket}",
-                                      color=0x0052cc,
-                                      url=f"{JIRA_URL}{JIRA_KEY}-{jira_ticket}",
-                                      description=ticket_summary)
-
-    elif jira_tickets:
-        embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
-        for group_num, tickets_group in enumerate(jira_tickets, 1):
-            tickets_group = tickets_group.strip().split()
-            unique_tickets = list(dict.fromkeys(tickets_group))
-
-            embed.add_field(name=f"Groupe {group_num}" if len(jira_tickets) > 1 else "",
-                            value="".join(
-                                f"⦁ [{JIRA_KEY}-{ticket_id}]({JIRA_URL}{JIRA_KEY}-{ticket_id})\n" for ticket_id in
-                                unique_tickets if
-                                ticket_id.isdigit()),
-                            inline=True)
-    else:
         return
 
     channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
-    await channel.send(embed=embed)
+    embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
+
+    jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
+    jira_message_checker = "\\" + command_prefix + \
+                           "(?:" + "|".join(jira_commands) + r") +([\d " + JIRA_KEY + JIRA_OLD_KEY + "\-]+)(?<!\s)"
+    ticket_ids = re.findall(jira_message_checker, message.content.upper(), flags=re.I)
+    if not ticket_ids:
+        return
+
+    ticket_ids_fixed = (re.sub(f"({JIRA_KEY}|{JIRA_OLD_KEY}) ", lambda match_obj: match_obj.group(1) + '-', ticket_id)
+                        for ticket_id in ticket_ids)
+    ticket_ids_split = list(list(dict.fromkeys(
+        f"BB-{ticket_id.strip()}" if ticket_id.strip().isdigit() else ticket_id for ticket_id in grouped_ids.split()))
+                            for grouped_ids in ticket_ids_fixed)
+    ticket_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, ticket_ids_split)
+
+    sql_query = f"SELECT `key`, `summary`" \
+                f"FROM `issue` " \
+                f"WHERE `key` IN ({', '.join(['%s'] * len(ticket_ids_assembled))})"
+    df_tickets = MysqlConnection().fetch_all(sql_query=sql_query, params=ticket_ids_assembled, output_type="df")
+
+    if not df_tickets.shape[0]:
+        is_plural = 's' if len(ticket_ids_assembled) > 1 else ''
+        error_message = f"Ticket{is_plural} **{'**, **'.join(ticket_ids_assembled)}** non-trouvé{is_plural} ou supprimé{is_plural}."
+        embed.add_field(name="", value=error_message, inline=False)
+        await channel.send(embed=embed)
+        return
+
+    df_tickets = df_tickets.set_index("key").reindex(index=ticket_ids_assembled).reset_index()
+    total_rows = df_tickets.shape[0]
+    for start_row in range(0, total_rows, 25):
+        sub_df_tickets = df_tickets.iloc[start_row:start_row + 25, :]
+        if start_row:
+            embed = discord.Embed(title="", color=0x0052cc)
+        for ticket_data in sub_df_tickets.iterrows():
+            ticket_data = ticket_data[1]
+            ticket_key = ticket_data["key"]
+            ticket_summary = ticket_data["summary"]
+            embed.add_field(name="",
+                            value=f"[{ticket_key}]({JIRA_URL}{ticket_key})\n"
+                                  f"> **{'Ticket inexistant ou supprimé' if pd.isna(ticket_summary) else ticket_summary}**",
+                            inline=False)
+
+        await channel.send(embed=embed)
 
 
 if __name__ == "__main__":
