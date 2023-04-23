@@ -399,10 +399,13 @@ async def on_message(message):
     if not ticket_ids:
         return
 
-    ticket_ids_fixed = (re.sub(f"({JIRA_KEY}|{JIRA_OLD_KEY}) ", lambda match_obj: match_obj.group(1) + '-', ticket_id)
-                        for ticket_id in ticket_ids)
+    ticket_ids_fixed = (
+        re.sub(f"({JIRA_KEY}|{JIRA_OLD_KEY})(?: |)(\w+)",
+               lambda match_obj: match_obj.group(1) + '-' + match_obj.group(2), x)
+        for x in ticket_ids)
     ticket_ids_split = list(list(dict.fromkeys(
-        f"BB-{ticket_id.strip()}" if ticket_id.strip().isdigit() else ticket_id for ticket_id in grouped_ids.split()))
+        f"{JIRA_KEY}-{ticket_id.strip()}" if ticket_id.strip().isdigit() else ticket_id for ticket_id in
+        grouped_ids.split()))
                             for grouped_ids in ticket_ids_fixed)
     ticket_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, ticket_ids_split)
 
