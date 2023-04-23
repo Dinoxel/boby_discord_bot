@@ -13,7 +13,7 @@ import asyncio
 import aiohttp
 import requests
 
-from src.templates import MysqlConnection
+from templates.mysql_connector import MysqlConnection
 import pandas as pd
 
 import platform

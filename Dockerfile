@@ -2,10 +2,10 @@ FROM gorialis/discord.py
 
 WORKDIR /src
 
-COPY requirements.txt ./
+COPY ./requirements.txt /src/requirements.txt
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /src/requirements.txt
 
-COPY /src .
+COPY ./src ./src
 
-CMD ["python", "./bot.py"]
+CMD ["python", "./src/bot.py"]
