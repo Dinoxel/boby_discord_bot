@@ -1,6 +1,6 @@
 FROM gorialis/discord.py
 
-WORKDIR /bot
+WORKDIR /src
 
 COPY requirements.txt ./
 
