@@ -417,7 +417,7 @@ async def on_message(message):
 
     if not df_tickets.shape[0]:
         is_plural = 's' if len(ticket_ids_filtered) > 1 else ''
-        error_message = f"Ticket{is_plural} **{'**, **'.join(ticket_ids_filtered)}** non-trouvé{is_plural} ou supprimé{is_plural}."
+        error_message = f"Ticket{is_plural} **{'**, **'.join(ticket_ids_filtered)}** inexistant{is_plural} ou supprimé{is_plural}."
         embed.add_field(name="", value=error_message, inline=False)
         await channel.send(embed=embed)
         return
