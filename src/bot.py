@@ -400,7 +400,7 @@ async def on_message(message):
         return
 
     ticket_ids_fixed = (
-        re.sub(f"({JIRA_KEY}|{JIRA_OLD_KEY})(?: |)(\w+)",
+        re.sub(fr"({JIRA_KEY}|{JIRA_OLD_KEY})(?: |)(\w+)",
                lambda match_obj: match_obj.group(1) + '-' + match_obj.group(2), x)
         for x in ticket_ids)
     ticket_ids_split = list(list(dict.fromkeys(
@@ -408,20 +408,21 @@ async def on_message(message):
         grouped_ids.split()))
                             for grouped_ids in ticket_ids_fixed)
     ticket_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, ticket_ids_split)
+    ticket_ids_filtered = [ticket_id for ticket_id in ticket_ids_assembled if re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", ticket_id) is not None]
 
     sql_query = f"SELECT `key`, `summary`" \
                 f"FROM `issue` " \
-                f"WHERE `key` IN ({', '.join(['%s'] * len(ticket_ids_assembled))})"
-    df_tickets = MysqlConnection().fetch_all(sql_query=sql_query, params=ticket_ids_assembled, output_type="df")
+                f"WHERE `key` IN ({', '.join(['%s'] * len(ticket_ids_filtered))})"
+    df_tickets = MysqlConnection().fetch_all(sql_query=sql_query, params=ticket_ids_filtered, output_type="df")
 
     if not df_tickets.shape[0]:
-        is_plural = 's' if len(ticket_ids_assembled) > 1 else ''
-        error_message = f"Ticket{is_plural} **{'**, **'.join(ticket_ids_assembled)}** non-trouvé{is_plural} ou supprimé{is_plural}."
+        is_plural = 's' if len(ticket_ids_filtered) > 1 else ''
+        error_message = f"Ticket{is_plural} **{'**, **'.join(ticket_ids_filtered)}** non-trouvé{is_plural} ou supprimé{is_plural}."
         embed.add_field(name="", value=error_message, inline=False)
         await channel.send(embed=embed)
         return
 
-    df_tickets = df_tickets.set_index("key").reindex(index=ticket_ids_assembled).reset_index()
+    df_tickets = df_tickets.set_index("key").reindex(index=ticket_ids_filtered).reset_index()
     total_rows = df_tickets.shape[0]
     for start_row in range(0, total_rows, 25):
         sub_df_tickets = df_tickets.iloc[start_row:start_row + 25, :]
