@@ -74,6 +74,13 @@ gitlab_excluded_users = {"Cafeine42", "BonaventureEleonore", "guillaumeharari"}
 last_merge_request_users = {"Cafeine42", "BonaventureEleonore"}
 
 
+def convert_time(seconds: int) -> float:
+    """Converts seconds to hours and minutes in a 100 base format."""
+    worked_hours = 8
+    sec_in_hours = 3600
+    return round(seconds // sec_in_hours / worked_hours + (seconds % sec_in_hours / worked_hours / 60 / 80), 3) or 0
+
+
 @bot.command(name="ticket", aliases=["t", "tickets", "jira", "j"])
 async def display_jira_tickets(ctx, *tickets):
     """
@@ -243,6 +250,29 @@ async def on_ready():
         last_merge_request_checker.start()
 
 
+@bot.command(name="estimate", aliases=["e"])
+async def estimate_time_for_sprints(ctx, *sprints):
+    if not sprints:
+        await ctx.send("Aucun sprint donné.")
+        return
+    sprints = sorted(set(sprints))
+    params_sprints = tuple(f"Sprint {sprint}_QA" for sprint in sprints)
+    sql_query = f"""SELECT DISTINCT SUM(i.`estimate_time`) As 'estimate_time'
+    FROM issue AS i
+    LEFT JOIN sprint_issues AS si
+    ON i.`id` = si.`issue_id`
+    RIGHT JOIN sprint AS s 
+    ON si.`sprint_id` = s.`id`
+    WHERE i.`status` not in ('DONE', 'IN REVIEW', 'TO MODIFY', 'IN PROGRESS', 'TO DEPLOY')
+    AND s.`name` in ({', '.join(['%s'] * len(sprints))})
+    AND i.`project_id` = (SELECT `id` from project WHERE `key` = '{JIRA_KEY}')"""
+
+    estimate_time = MysqlConnection().fetch_all(sql_query=sql_query, params=params_sprints, output_type="rows")[0][0]
+    await ctx.send(
+        f"Sprint{'s' if len(sprints) > 1 else ''} QA {', '.join(sprint for sprint in sprints)}\n"
+        f"-> Temps estimé : {0 if estimate_time is None else convert_time(estimate_time)}")
+
+
 @bot.command(name="git", aliases=["g", "gitlab"])
 async def list_merge_requests(ctx, *arguments):
     """
@@ -408,7 +438,8 @@ async def on_message(message):
         grouped_ids.split()))
                             for grouped_ids in ticket_ids_fixed)
     ticket_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, ticket_ids_split)
-    ticket_ids_filtered = [ticket_id for ticket_id in ticket_ids_assembled if re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", ticket_id) is not None]
+    ticket_ids_filtered = [ticket_id for ticket_id in ticket_ids_assembled if
+                           re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", ticket_id) is not None]
 
     sql_query = f"SELECT `key`, `summary`" \
                 f"FROM `issue` " \
