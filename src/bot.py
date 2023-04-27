@@ -270,7 +270,7 @@ async def estimate_time_for_sprints(ctx, *sprints):
     estimate_time = MysqlConnection().fetch_all(sql_query=sql_query, params=params_sprints, output_type="rows")[0][0]
     await ctx.send(
         f"Sprint{'s' if len(sprints) > 1 else ''} QA {', '.join(sprint for sprint in sprints)}\n"
-        f"-> Temps estimé : {0 if estimate_time is None else convert_time(estimate_time)}")
+        f"-> Temps estimé : {0 if estimate_time is None else str(convert_time(estimate_time)).replace('.', ',')}")
 
 
 @bot.command(name="git", aliases=["g", "gitlab"])
