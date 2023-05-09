@@ -91,7 +91,7 @@ async def display_jira_tickets(ctx, *tickets):
     :return: The embed containing Jira tickets
     """
     if len(tickets) == 0:
-        embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
+        embed = discord.Embed(title="", color=0x0052cc)
         embed.add_field(name="", value="No ticket provided", inline=False)
         await ctx.send(embed=embed)
 
@@ -420,7 +420,7 @@ async def on_message(message):
         return
 
     channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
-    embed = discord.Embed(title="Tickets Jira", color=0x0052cc)
+    embed = discord.Embed(title="", color=0x0052cc)
 
     jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
     jira_message_checker = "\\" + command_prefix + \
