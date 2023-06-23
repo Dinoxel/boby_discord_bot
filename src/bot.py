@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands, tasks
+import yt_dlp as youtube_dl
 
 from blagues_api import BlaguesAPI, BlagueType
 
@@ -476,7 +477,7 @@ async def on_message(message):
 
 
 @bot.command(name="play")
-async def play(ctx, music_name: Union[str, None] = None):
+async def play(ctx, music_name: str | None = None):
     global voice_client, last_music, last_music_url
     if music_name is None:
         await ctx.send("You need to provide a URL.")
