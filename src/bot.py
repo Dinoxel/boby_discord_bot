@@ -69,9 +69,13 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
 previous_last_merge_request_id = None
+voice_client = None
+last_music = None
+last_music_url = None
 
 gitlab_excluded_users = {"Cafeine42", "BonaventureEleonore", "guillaumeharari"}
 last_merge_request_users = {"Cafeine42", "BonaventureEleonore"}
+played_musics = []
 
 
 def convert_time(seconds: int) -> float:
@@ -469,6 +473,86 @@ async def on_message(message):
                             inline=False)
 
         await channel.send(embed=embed)
+
+
+@bot.command(name="play")
+async def play(ctx, music_name: Union[str, None] = None):
+    global voice_client, last_music, last_music_url
+    if music_name is None:
+        await ctx.send("You need to provide a URL.")
+        return
+
+    voice = ctx.author.voice
+
+    if voice is None:
+        await ctx.send("You are not connected to a voice channel.")
+        return
+    channel = voice.channel
+
+    if voice_client is None or not voice_client.is_connected():
+        voice_client = await channel.connect()
+
+    if played_musics and music_name in {music["music_name"] for music in played_musics} and voice_client:
+        if music_name == last_music and voice_client.is_playing():
+            await ctx.send("I am already playing that.")
+        else:
+            await ctx.message.add_reaction("✅")
+            playing_sound = [music for music in played_musics if music["music_name"] == music_name][0]
+            last_music = music_name
+            last_music_url = playing_sound['url']
+            voice_client.stop()
+            voice_client.play(discord.FFmpegPCMAudio(playing_sound['url']))
+    else:
+        await ctx.message.add_reaction("✅")
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'default_search': 'auto',
+            'source_address': '0.0.0.0'
+        }
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(music_name, download=False)
+
+            if 'entries' in info:
+                video = info['entries'][0]
+            else:
+                video = info
+
+            video_url = video['url']
+            last_music = music_name
+            last_music_url = video_url
+            played_musics.append({"music_name": music_name, "url": video_url})
+            if voice_client.is_playing():
+                voice_client.stop()
+            voice_client.play(discord.FFmpegPCMAudio(video_url))
+
+        # Check if voice channel becomes empty or no sound is playing after 5 minutes
+        # minutes_before_disconnecting = 5
+        # await asyncio.sleep(minutes_before_disconnecting * 60)
+        #
+        # if len(channel.members) == 1 or not voice_client.is_playing():
+        #     await voice_client.disconnect()
+        #     voice_client = None
+
+
+@bot.command(name="leave")
+async def leave(ctx):
+    global voice_client
+    if voice_client and voice_client.is_connected():
+        await voice_client.disconnect()
+        voice_client = None
+        await ctx.message.add_reaction("✅")
+    else:
+        await ctx.send("I am not connected to a voice channel.")
+
+
+@bot.command(name="stop")
+async def stop(ctx):
+    global voice_client
+    if voice_client and voice_client.is_playing():
+        voice_client.stop()
+        await ctx.message.add_reaction("✅")
+    else:
+        await ctx.send("I am not playing anything.")
 
 
 if __name__ == "__main__":
