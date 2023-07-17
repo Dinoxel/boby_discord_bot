@@ -17,6 +17,8 @@ import requests
 from templates.mysql_connector import MysqlConnection
 import pandas as pd
 
+from typing import Union
+
 import platform
 
 if platform.system() == 'Windows':
@@ -64,7 +66,7 @@ IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
 
-command_prefix = ">" if IS_DEBUG_MODE else "$"
+command_prefix = "$$" if IS_DEBUG_MODE else "$"
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=command_prefix, intents=intents)
@@ -421,7 +423,7 @@ async def on_message(message):
             and re.search(fr"^{command_prefix}m(?:anager)? +-m(?:essage)? +-d(?:elete)?",
                           message.content.strip()
                           ) is not None:
-        await message.add_reaction('✅')
+        # await message.add_reaction('✅')
         return
 
     channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
@@ -477,7 +479,7 @@ async def on_message(message):
 
 
 @bot.command(name="play")
-async def play(ctx, music_name: str | None = None):
+async def play(ctx, music_name: Union[str, None] = None):
     global voice_client, last_music, last_music_url
     if music_name is None:
         await ctx.send("You need to provide a URL.")
