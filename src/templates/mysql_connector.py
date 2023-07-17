@@ -3,6 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 
+from typing import Union
+
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv, find_dotenv
@@ -18,7 +20,7 @@ MYSQL_DATABASE = os.getenv('MYSQL_DATABASE')
 
 class MysqlConnection:
     def __init__(self,
-                 table: str | None = None):
+                 table: Union[str, None] = None):
         self.connection = pymysql.connect(host=MYSQL_HOST,
                                           port=int(MYSQL_PORT),
                                           user=MYSQL_USER,
@@ -32,7 +34,7 @@ class MysqlConnection:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.connection.close()
 
-    def fetch_all(self, sql_query: str | None = None, params=None, output_type="dict"):
+    def fetch_all(self, sql_query: Union[str, None] = None, params=None, output_type="dict"):
         if sql_query is None:
             sql_query = f"SELECT * FROM `{self._table}`"
         with self.connection:
