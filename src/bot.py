@@ -88,18 +88,18 @@ def convert_time(seconds: int) -> float:
     return round(seconds // sec_in_hours / worked_hours + (seconds % sec_in_hours / worked_hours / 60 / 80), 3) or 0
 
 
-@bot.command(name="ticket", aliases=["t", "tickets", "jira", "j"])
-async def display_jira_tickets(ctx, *tickets):
+@bot.command(name="issue", aliases=["t", "issues", "jira", "j"])
+async def display_jira_issues(ctx, *issues):
     """
-    Displays selected Jira tickets
+    Displays selected Jira issues
 
     :param ctx: The context of the command
-    :param tickets: Tickets to display
-    :return: The embed containing Jira tickets
+    :param issues: Issues to display
+    :return: The embed containing Jira issues
     """
-    if len(tickets) == 0:
+    if len(issues) == 0:
         embed = discord.Embed(title="", color=0x0052cc)
-        embed.add_field(name="", value="No ticket provided", inline=False)
+        embed.add_field(name="", value="No issue provided", inline=False)
         await ctx.send(embed=embed)
 
 
@@ -411,10 +411,10 @@ async def last_merge_request_checker():
 @bot.listen()
 async def on_message(message):
     """
-    Check for Jira tickets in messages
+    Check for Jira issues in messages
 
     :param message: The message to check
-    :return: The embed containing the Jira tickets
+    :return: The embed containing the Jira issues
     """
     if message.author.bot:
         return
@@ -429,50 +429,52 @@ async def on_message(message):
     channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
     embed = discord.Embed(title="", color=0x0052cc)
 
-    jira_commands = [display_jira_tickets.name] + display_jira_tickets.aliases
+    jira_commands = [display_jira_issues.name] + display_jira_issues.aliases
     jira_message_checker = "\\" + command_prefix + \
                            "(?:" + "|".join(jira_commands) + r") +([\d " + JIRA_KEY + JIRA_OLD_KEY + "\-]+)(?<!\s)"
-    ticket_ids = re.findall(jira_message_checker, message.content.upper(), flags=re.I)
-    if not ticket_ids:
+    issue_ids = re.findall(jira_message_checker, message.content.upper(), flags=re.I)
+    if not issue_ids:
         return
 
-    ticket_ids_fixed = (
+    issue_ids_fixed = (
         re.sub(fr"({JIRA_KEY}|{JIRA_OLD_KEY})(?: |)(\w+)",
                lambda match_obj: match_obj.group(1) + '-' + match_obj.group(2), x)
-        for x in ticket_ids)
-    ticket_ids_split = list(list(dict.fromkeys(
-        f"{JIRA_KEY}-{ticket_id.strip()}" if ticket_id.strip().isdigit() else ticket_id for ticket_id in
+        for x in issue_ids)
+    issue_ids_split = list(list(dict.fromkeys(
+        f"{JIRA_KEY}-{issue_id.strip()}" if issue_id.strip().isdigit() else issue_id for issue_id in
         grouped_ids.split()))
-                            for grouped_ids in ticket_ids_fixed)
-    ticket_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, ticket_ids_split)
-    ticket_ids_filtered = [ticket_id for ticket_id in ticket_ids_assembled if
-                           re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", ticket_id) is not None]
+                            for grouped_ids in issue_ids_fixed)
+    issue_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, issue_ids_split)
+    issue_ids_filtered = [issue_id for issue_id in issue_ids_assembled if
+                           re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", issue_id) is not None]
 
     sql_query = f"SELECT `key`, `summary`" \
                 f"FROM `issue` " \
-                f"WHERE `key` IN ({', '.join(['%s'] * len(ticket_ids_filtered))})"
-    df_tickets = MysqlConnection().fetch_all(sql_query=sql_query, params=ticket_ids_filtered, output_type="df")
+                f"WHERE `key` IN ({', '.join(['%s'] * len(issue_ids_filtered))})"
+    df_issues = MysqlConnection().fetch_all(sql_query=sql_query, params=issue_ids_filtered, output_type="df")
 
-    if not df_tickets.shape[0]:
-        is_plural = 's' if len(ticket_ids_filtered) > 1 else ''
-        error_message = f"Ticket{is_plural} **{'**, **'.join(ticket_ids_filtered)}** inexistant{is_plural} ou supprimé{is_plural}."
+    if not df_issues.shape[0]:
+        # TODO: Si issue non trouvé, va directement les requêter sur Jira le issue
+        is_plural = 's' if len(issue_ids_filtered) > 1 else ''
+        error_message = f"Issue{is_plural} **{'**, **'.join(issue_ids_filtered)}** inexistant{is_plural} ou supprimé{is_plural}."
         embed.add_field(name="", value=error_message, inline=False)
         await channel.send(embed=embed)
         return
 
-    df_tickets = df_tickets.set_index("key").reindex(index=ticket_ids_filtered).reset_index()
-    total_rows = df_tickets.shape[0]
+    df_issues = df_issues.set_index("key").reindex(index=issue_ids_filtered).reset_index()
+    total_rows = df_issues.shape[0]
     for start_row in range(0, total_rows, 25):
-        sub_df_tickets = df_tickets.iloc[start_row:start_row + 25, :]
+        sub_df_issues = df_issues.iloc[start_row:start_row + 25, :]
         if start_row:
             embed = discord.Embed(title="", color=0x0052cc)
-        for ticket_data in sub_df_tickets.iterrows():
-            ticket_data = ticket_data[1]
-            ticket_key = ticket_data["key"]
-            ticket_summary = ticket_data["summary"]
+        for issue_data in sub_df_issues.iterrows():
+            # TODO: Si ticket non trouvé, va directement les requêter sur Jira le ticket
+            issue_data = issue_data[1]
+            issue_key = issue_data["key"]
+            issue_summary = issue_data["summary"]
             embed.add_field(name="",
-                            value=f"[{ticket_key}]({JIRA_URL}{ticket_key})\n"
-                                  f"> **{'Ticket inexistant ou supprimé' if pd.isna(ticket_summary) else ticket_summary}**",
+                            value=f"[{issue_key}]({JIRA_URL}{issue_key})\n"
+                                  f"> **{'Issue inexistant ou supprimé' if pd.isna(issue_summary) else issue_summary}**",
                             inline=False)
 
         await channel.send(embed=embed)
