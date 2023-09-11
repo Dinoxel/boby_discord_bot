@@ -66,7 +66,7 @@ IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
 blagues = BlaguesAPI(BLAGUES_API_TOKEN)
 
-command_prefix = "$$" if IS_DEBUG_MODE else "$"
+command_prefix = "$>" if IS_DEBUG_MODE else "$"
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=command_prefix, intents=intents)
@@ -443,20 +443,22 @@ async def on_message(message):
     issue_ids_split = list(list(dict.fromkeys(
         f"{JIRA_KEY}-{issue_id.strip()}" if issue_id.strip().isdigit() else issue_id for issue_id in
         grouped_ids.split()))
-                            for grouped_ids in issue_ids_fixed)
+                           for grouped_ids in issue_ids_fixed)
     issue_ids_assembled = reduce(lambda group_1, group_2: group_1 + group_2, issue_ids_split)
     issue_ids_filtered = [issue_id for issue_id in issue_ids_assembled if
-                           re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", issue_id) is not None]
+                          re.match(rf"({JIRA_KEY}|{JIRA_OLD_KEY})-\d+", issue_id) is not None]
 
-    sql_query = f"SELECT `key`, `summary`" \
-                f"FROM `issue` " \
-                f"WHERE `key` IN ({', '.join(['%s'] * len(issue_ids_filtered))})"
+    sql_query = (f"SELECT i.`key`, i.`summary`, gc.`target_branch` "
+                 f"FROM `issue` AS i "
+                 f"LEFT JOIN gitlab_commit AS gc "
+                 f"ON i.key = gc.key "
+                 f"WHERE i.`key` IN ({', '.join(['%s'] * len(issue_ids_filtered))})")
     df_issues = MysqlConnection().fetch_all(sql_query=sql_query, params=issue_ids_filtered, output_type="df")
 
     if not df_issues.shape[0]:
         # TODO: Si issue non trouvé, va directement les requêter sur Jira le issue
         is_plural = 's' if len(issue_ids_filtered) > 1 else ''
-        error_message = f"Issue{is_plural} **{'**, **'.join(issue_ids_filtered)}** inexistant{is_plural} ou supprimé{is_plural}."
+        error_message = f"Ticket{is_plural} **{'**, **'.join(issue_ids_filtered)}** inexistant{is_plural} ou supprimé{is_plural}."
         embed.add_field(name="", value=error_message, inline=False)
         await channel.send(embed=embed)
         return
@@ -472,9 +474,11 @@ async def on_message(message):
             issue_data = issue_data[1]
             issue_key = issue_data["key"]
             issue_summary = issue_data["summary"]
+            issue_target_branch = issue_data["target_branch"]
+            target_branch_text = '' if pd.isna(issue_target_branch) else f"-> [`{issue_target_branch}`]({GITLAB_REPO_URL}/tree/{issue_target_branch})"
             embed.add_field(name="",
-                            value=f"[{issue_key}]({JIRA_URL}{issue_key})\n"
-                                  f"> **{'Issue inexistant ou supprimé' if pd.isna(issue_summary) else issue_summary}**",
+                            value=f"[{issue_key}]({JIRA_URL}{issue_key}) {target_branch_text}\n"
+                                  f"> **{'Ticket inexistant ou supprimé' if pd.isna(issue_summary) else issue_summary}**",
                             inline=False)
 
         await channel.send(embed=embed)
