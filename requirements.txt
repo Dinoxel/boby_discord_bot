@@ -28,4 +28,3 @@ typing_extensions==4.5.0
 tzdata==2023.3
 urllib3==1.26.14
 yarl==1.8.2
-yt-dlp @ https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz

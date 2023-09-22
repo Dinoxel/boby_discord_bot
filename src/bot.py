@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-import yt_dlp as youtube_dl
+# import yt_dlp as youtube_dl
 
 from blagues_api import BlaguesAPI, BlagueType
 
@@ -186,6 +186,7 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
                         if bot.user.id == message.author.id:
                             print("Deleted:", message.id, message.content or message.embeds[0].title)
                             await message.delete()
+                            await ctx.message.add_reaction('✅')
                             break
             except discord.errors.NotFound:
                 print("Message not found.")
@@ -423,10 +424,9 @@ async def on_message(message):
             and re.search(fr"^{command_prefix}m(?:anager)? +-m(?:essage)? +-d(?:elete)?",
                           message.content.strip()
                           ) is not None:
-        # await message.add_reaction('✅')
         return
 
-    channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
+    channel = bot.get_guild(message.guild.id).get_channel_or_thread(message.channel.id)
     embed = discord.Embed(title="", color=0x0052cc)
 
     jira_commands = [display_jira_issues.name] + display_jira_issues.aliases
@@ -484,55 +484,55 @@ async def on_message(message):
         await channel.send(embed=embed)
 
 
-@bot.command(name="play")
-async def play(ctx, music_name: Union[str, None] = None):
-    global voice_client, last_music, last_music_url
-    if music_name is None:
-        await ctx.send("You need to provide a URL.")
-        return
-
-    voice = ctx.author.voice
-
-    if voice is None:
-        await ctx.send("You are not connected to a voice channel.")
-        return
-    channel = voice.channel
-
-    if voice_client is None or not voice_client.is_connected():
-        voice_client = await channel.connect()
-
-    if played_musics and music_name in {music["music_name"] for music in played_musics} and voice_client:
-        if music_name == last_music and voice_client.is_playing():
-            await ctx.send("I am already playing that.")
-        else:
-            await ctx.message.add_reaction("✅")
-            playing_sound = [music for music in played_musics if music["music_name"] == music_name][0]
-            last_music = music_name
-            last_music_url = playing_sound['url']
-            voice_client.stop()
-            voice_client.play(discord.FFmpegPCMAudio(playing_sound['url']))
-    else:
-        await ctx.message.add_reaction("✅")
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'default_search': 'auto',
-            'source_address': '0.0.0.0'
-        }
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(music_name, download=False)
-
-            if 'entries' in info:
-                video = info['entries'][0]
-            else:
-                video = info
-
-            video_url = video['url']
-            last_music = music_name
-            last_music_url = video_url
-            played_musics.append({"music_name": music_name, "url": video_url})
-            if voice_client.is_playing():
-                voice_client.stop()
-            voice_client.play(discord.FFmpegPCMAudio(video_url))
+# @bot.command(name="play")
+# async def play(ctx, music_name: Union[str, None] = None):
+#     global voice_client, last_music, last_music_url
+#     if music_name is None:
+#         await ctx.send("You need to provide a URL.")
+#         return
+#
+#     voice = ctx.author.voice
+#
+#     if voice is None:
+#         await ctx.send("You are not connected to a voice channel.")
+#         return
+#     channel = voice.channel
+#
+#     if voice_client is None or not voice_client.is_connected():
+#         voice_client = await channel.connect()
+#
+#     if played_musics and music_name in {music["music_name"] for music in played_musics} and voice_client:
+#         if music_name == last_music and voice_client.is_playing():
+#             await ctx.send("I am already playing that.")
+#         else:
+#             await ctx.message.add_reaction("✅")
+#             playing_sound = [music for music in played_musics if music["music_name"] == music_name][0]
+#             last_music = music_name
+#             last_music_url = playing_sound['url']
+#             voice_client.stop()
+#             voice_client.play(discord.FFmpegPCMAudio(playing_sound['url']))
+#     else:
+#         await ctx.message.add_reaction("✅")
+#         ydl_opts = {
+#             'format': 'bestaudio/best',
+#             'default_search': 'auto',
+#             'source_address': '0.0.0.0'
+#         }
+#         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+#             info = ydl.extract_info(music_name, download=False)
+#
+#             if 'entries' in info:
+#                 video = info['entries'][0]
+#             else:
+#                 video = info
+#
+#             video_url = video['url']
+#             last_music = music_name
+#             last_music_url = video_url
+#             played_musics.append({"music_name": music_name, "url": video_url})
+#             if voice_client.is_playing():
+#                 voice_client.stop()
+#             voice_client.play(discord.FFmpegPCMAudio(video_url))
 
         # Check if voice channel becomes empty or no sound is playing after 5 minutes
         # minutes_before_disconnecting = 5
@@ -542,26 +542,26 @@ async def play(ctx, music_name: Union[str, None] = None):
         #     await voice_client.disconnect()
         #     voice_client = None
 
-
-@bot.command(name="leave")
-async def leave(ctx):
-    global voice_client
-    if voice_client and voice_client.is_connected():
-        await voice_client.disconnect()
-        voice_client = None
-        await ctx.message.add_reaction("✅")
-    else:
-        await ctx.send("I am not connected to a voice channel.")
-
-
-@bot.command(name="stop")
-async def stop(ctx):
-    global voice_client
-    if voice_client and voice_client.is_playing():
-        voice_client.stop()
-        await ctx.message.add_reaction("✅")
-    else:
-        await ctx.send("I am not playing anything.")
+#
+# @bot.command(name="leave")
+# async def leave(ctx):
+#     global voice_client
+#     if voice_client and voice_client.is_connected():
+#         await voice_client.disconnect()
+#         voice_client = None
+#         await ctx.message.add_reaction("✅")
+#     else:
+#         await ctx.send("I am not connected to a voice channel.")
+#
+#
+# @bot.command(name="stop")
+# async def stop(ctx):
+#     global voice_client
+#     if voice_client and voice_client.is_playing():
+#         voice_client.stop()
+#         await ctx.message.add_reaction("✅")
+#     else:
+#         await ctx.send("I am not playing anything.")
 
 
 if __name__ == "__main__":
