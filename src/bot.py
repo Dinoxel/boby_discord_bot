@@ -542,26 +542,26 @@ async def on_message(message):
         #     await voice_client.disconnect()
         #     voice_client = None
 
-
-@bot.command(name="leave")
-async def leave(ctx):
-    global voice_client
-    if voice_client and voice_client.is_connected():
-        await voice_client.disconnect()
-        voice_client = None
-        await ctx.message.add_reaction("✅")
-    else:
-        await ctx.send("I am not connected to a voice channel.")
-
-
-@bot.command(name="stop")
-async def stop(ctx):
-    global voice_client
-    if voice_client and voice_client.is_playing():
-        voice_client.stop()
-        await ctx.message.add_reaction("✅")
-    else:
-        await ctx.send("I am not playing anything.")
+#
+# @bot.command(name="leave")
+# async def leave(ctx):
+#     global voice_client
+#     if voice_client and voice_client.is_connected():
+#         await voice_client.disconnect()
+#         voice_client = None
+#         await ctx.message.add_reaction("✅")
+#     else:
+#         await ctx.send("I am not connected to a voice channel.")
+#
+#
+# @bot.command(name="stop")
+# async def stop(ctx):
+#     global voice_client
+#     if voice_client and voice_client.is_playing():
+#         voice_client.stop()
+#         await ctx.message.add_reaction("✅")
+#     else:
+#         await ctx.send("I am not playing anything.")
 
 
 if __name__ == "__main__":
