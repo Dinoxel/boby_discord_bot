@@ -424,10 +424,9 @@ async def on_message(message):
             and re.search(fr"^{command_prefix}m(?:anager)? +-m(?:essage)? +-d(?:elete)?",
                           message.content.strip()
                           ) is not None:
-        # await message.add_reaction('✅')
         return
 
-    channel = bot.get_guild(message.guild.id).get_channel(message.channel.id)
+    channel = bot.get_guild(message.guild.id).get_channel_or_thread(message.channel.id)
     embed = discord.Embed(title="", color=0x0052cc)
 
     jira_commands = [display_jira_issues.name] + display_jira_issues.aliases
