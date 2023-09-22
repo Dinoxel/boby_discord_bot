@@ -186,6 +186,7 @@ async def bot_manager(ctx, command=None, sub_command=None, *parameters):
                         if bot.user.id == message.author.id:
                             print("Deleted:", message.id, message.content or message.embeds[0].title)
                             await message.delete()
+                            await ctx.message.add_reaction('✅')
                             break
             except discord.errors.NotFound:
                 print("Message not found.")
