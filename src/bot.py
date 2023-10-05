@@ -20,6 +20,7 @@ import pandas as pd
 from typing import Union
 
 import platform
+import logging
 
 if platform.system() == 'Windows':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -61,6 +62,8 @@ GITHUB_WORKFLOW_HEADERS = {"Authorization": "Bearer " + GITHUB_TOKEN, "Accept": 
 GITHUB_WORKFLOW_EVENT_QA = os.environ.get("GITHUB_WORKFLOW_EVENT_QA")
 GITHUB_WORKFLOW_EVENT_SALES = os.environ.get("GITHUB_WORKFLOW_EVENT_SALES")
 
+SLACK_HOOK = os.getenv("SLACK_HOOK")
+
 IS_DEBUG_MODE = eval(os.getenv("IS_DEBUG_MODE", "False"))
 
 BLAGUES_API_TOKEN = os.getenv("BLAGUES_API_TOKEN")
@@ -79,6 +82,20 @@ last_music_url = None
 gitlab_excluded_users = {"Cafeine42", "BonaventureEleonore", "guillaumeharari"}
 last_merge_request_users = {"Cafeine42", "BonaventureEleonore"}
 played_musics = []
+
+
+def get_hyperlink(hyperlink: str, text: str, is_markdown: bool = False) -> str:
+    if is_markdown:
+        return f"<{hyperlink}|{text}>"
+
+    return f"[{text}]({hyperlink})"
+
+
+def set_payload_field(data_payload: dict, name: str, value: str) -> None:
+    data_payload["attachments"][0]["blocks"][0]["fields"].append({
+        "type": "mrkdwn",
+        "text": f"*{name}*\n{value}"
+    })
 
 
 def convert_time(seconds: int) -> float:
@@ -375,38 +392,93 @@ async def last_merge_request_checker():
             side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
             mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
             mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
+            mr_description = last_merge_request["title"]
+            mr_thumbnail = last_merge_request["author"]["avatar_url"]
+            mr_content = f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}"
 
             embed = discord.Embed(title=mr_author,
                                   color=side_color,
-                                  description=last_merge_request["title"])
-            embed.set_thumbnail(url=last_merge_request["author"]["avatar_url"])
+                                  description=mr_description)
+            embed.set_thumbnail(url=mr_thumbnail)
+
+            payload = {
+                "text": mr_content,
+                "attachments": [
+                    {
+                        "color": side_color,  # red: #E74C3C / green: #2ECC71
+                        "blocks": [
+                            {
+                                "type": "section",
+                                "text": {
+                                    "text": f"{mr_author}\n{mr_description}",
+                                    "type": "mrkdwn"
+                                },
+                                "accessory": {
+                                    "type": "image",
+                                    "image_url": mr_thumbnail,
+                                    "alt_text": f"Photo de profil Gitlab de {mr_author}"
+                                },
+                                "fields": []
+                            }
+                        ]
+                    }
+                ]
+            }
+
+            if last_merge_request['target_branch']:
+                field_name = "Branche cible"
+                field_value = (f"`{last_merge_request['target_branch']}`",
+                               f"{GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']}")
+                embed.add_field(name=field_name,
+                                value=get_hyperlink(*field_value),
+                                inline=True)
+                set_payload_field(data_payload=payload,
+                                  name=field_name,
+                                  value=get_hyperlink(*field_value, is_markdown=True))
 
             mr_jira_id = re.search(fr"(?i)^(?:{JIRA_KEY}|{JIRA_OLD_KEY})-(\d+)", last_merge_request['source_branch'])
             if mr_jira_id:
                 mr_jira_id = mr_jira_id.groups()[0]
-                embed.add_field(name="Lien Jira",
-                                value=f"[{JIRA_KEY}-{mr_jira_id}]({JIRA_URL}{JIRA_KEY}-{mr_jira_id})",
-                                inline=True)
+                field_name = "Lien Jira"
+                field_value = (f"{JIRA_KEY}-{mr_jira_id}",
+                               f"{JIRA_URL}{JIRA_KEY}-{mr_jira_id}")
 
-            if last_merge_request['target_branch']:
-                embed.add_field(name="Branche cible",
-                                value=f"[`{last_merge_request['target_branch']}`]({GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']})",
+                embed.add_field(name=field_name,
+                                value=get_hyperlink(*field_value),
                                 inline=True)
+                set_payload_field(data_payload=payload,
+                                  name=field_name,
+                                  value=get_hyperlink(*field_value, is_markdown=True))
 
             if last_merge_request['labels']:
-                embed.add_field(name="Labels",
-                                value=' • '.join(label for label in last_merge_request['labels']),
+                field_name = "Labels"
+                field_value = ' • '.join(label for label in last_merge_request['labels'])
+
+                embed.add_field(name=field_name,
+                                value=field_value,
                                 inline=True)
+                set_payload_field(data_payload=payload,
+                                  name=field_name,
+                                  value=field_value)
 
             if last_merge_request['has_conflicts']:
-                embed.add_field(
-                    name="⚠️ Merge Conflict ⚠️",
-                    value=f"[lien vers conflit]({GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts)",
-                    inline=True)
+                field_name = "⚠️ Merge Conflict ⚠️"
+                field_value = ("lien vers conflit",
+                               f"{GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts")
+
+                embed.add_field(name=field_name,
+                                value=get_hyperlink(*field_value),
+                                inline=True)
+                set_payload_field(data_payload=payload,
+                                  name=field_name,
+                                  value=get_hyperlink(*field_value, is_markdown=True))
+
+            response = requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
+            logging.error(f"{response.status_code}: {response.text}")
 
             channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
             await channel.send(embed=embed,
-                               content=f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}")
+                               content=mr_content)
 
 
 @bot.listen()
@@ -475,7 +547,8 @@ async def on_message(message):
             issue_key = issue_data["key"]
             issue_summary = issue_data["summary"]
             issue_target_branch = issue_data["target_branch"]
-            target_branch_text = '' if pd.isna(issue_target_branch) else f"-> [`{issue_target_branch}`]({GITLAB_REPO_URL}/tree/{issue_target_branch})"
+            target_branch_text = '' if pd.isna(
+                issue_target_branch) else f"-> [`{issue_target_branch}`]({GITLAB_REPO_URL}/tree/{issue_target_branch})"
             embed.add_field(name="",
                             value=f"[{issue_key}]({JIRA_URL}{issue_key}) {target_branch_text}\n"
                                   f"> **{'Ticket inexistant ou supprimé' if pd.isna(issue_summary) else issue_summary}**",
@@ -534,13 +607,13 @@ async def on_message(message):
 #                 voice_client.stop()
 #             voice_client.play(discord.FFmpegPCMAudio(video_url))
 
-        # Check if voice channel becomes empty or no sound is playing after 5 minutes
-        # minutes_before_disconnecting = 5
-        # await asyncio.sleep(minutes_before_disconnecting * 60)
-        #
-        # if len(channel.members) == 1 or not voice_client.is_playing():
-        #     await voice_client.disconnect()
-        #     voice_client = None
+# Check if voice channel becomes empty or no sound is playing after 5 minutes
+# minutes_before_disconnecting = 5
+# await asyncio.sleep(minutes_before_disconnecting * 60)
+#
+# if len(channel.members) == 1 or not voice_client.is_playing():
+#     await voice_client.disconnect()
+#     voice_client = None
 
 #
 # @bot.command(name="leave")
