@@ -15,7 +15,7 @@ def send_slack_message():
     fields = [
         {
             "type": "mrkdwn",
-            "text": "*Branche cible*\n`dev`"
+            "text": f"*Branche cible*\n<https://boby-app.atlassian.com/browse/BB-5469|`dev`>"
         },
         {
             "type": "mrkdwn",
@@ -27,7 +27,7 @@ def send_slack_message():
         },
         {
             "type": "mrkdwn",
-            "text": "*Merge Conflict*\n<https://gitlab.com/cybat/boby-web/-/merge_requests/2889/conflicts|lien vers conflit>"
+            "text": "*⚠️ Merge Conflict ⚠️*\n<https://gitlab.com/cybat/boby-web/-/merge_requests/2889/conflicts|lien vers conflit>"
         }
     ]
     message_text = "MR https://gitlab.com/cybat/boby-web/-/merge_requests/2906"
