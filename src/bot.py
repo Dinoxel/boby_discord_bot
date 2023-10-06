@@ -390,7 +390,7 @@ async def last_merge_request_checker():
 
             previous_last_merge_request_id = last_merge_request["id"]
 
-            side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
+            side_color = str(discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green())
             mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
             mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
             mr_description = last_merge_request["title"]
