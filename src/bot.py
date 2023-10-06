@@ -21,7 +21,6 @@ import json
 from typing import Union
 
 import platform
-import logging
 
 if platform.system() == 'Windows':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -474,8 +473,7 @@ async def last_merge_request_checker():
                                   name=field_name,
                                   value=get_hyperlink(**field_values, is_markdown=True))
 
-            response = requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
-            logging.error(f"{response.status_code}: {response.text}")
+            requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
 
             channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
             await channel.send(embed=embed,
