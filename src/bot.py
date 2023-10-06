@@ -428,51 +428,51 @@ async def last_merge_request_checker():
 
             if last_merge_request['target_branch']:
                 field_name = "Branche cible"
-                field_value = (f"`{last_merge_request['target_branch']}`",
-                               f"{GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']}")
+                field_values = {"text": f"`{last_merge_request['target_branch']}`",
+                                "hyperlink": f"{GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']}"}
                 embed.add_field(name=field_name,
-                                value=get_hyperlink(*field_value),
+                                value=get_hyperlink(**field_values),
                                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
-                                  value=get_hyperlink(*field_value, is_markdown=True))
+                                  value=get_hyperlink(**field_values, is_markdown=True))
 
             mr_jira_id = re.search(fr"(?i)^(?:{JIRA_KEY}|{JIRA_OLD_KEY})-(\d+)", last_merge_request['source_branch'])
             if mr_jira_id:
                 mr_jira_id = mr_jira_id.groups()[0]
                 field_name = "Lien Jira"
-                field_value = (f"{JIRA_KEY}-{mr_jira_id}",
-                               f"{JIRA_URL}{JIRA_KEY}-{mr_jira_id}")
+                field_values = {"text": f"{JIRA_KEY}-{mr_jira_id}",
+                                "hyperlink": f"{JIRA_URL}{JIRA_KEY}-{mr_jira_id}"}
 
                 embed.add_field(name=field_name,
-                                value=get_hyperlink(*field_value),
+                                value=get_hyperlink(**field_values),
                                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
-                                  value=get_hyperlink(*field_value, is_markdown=True))
+                                  value=get_hyperlink(**field_values, is_markdown=True))
 
             if last_merge_request['labels']:
                 field_name = "Labels"
-                field_value = ' • '.join(label for label in last_merge_request['labels'])
+                field_values = ' • '.join(label for label in last_merge_request['labels'])
 
                 embed.add_field(name=field_name,
-                                value=field_value,
+                                value=field_values,
                                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
-                                  value=field_value)
+                                  value=field_values)
 
             if last_merge_request['has_conflicts']:
                 field_name = "⚠️ Merge Conflict ⚠️"
-                field_value = ("lien vers conflit",
-                               f"{GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts")
+                field_values = {"text": "lien vers conflit",
+                                "hyperlink": f"{GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts"}
 
                 embed.add_field(name=field_name,
-                                value=get_hyperlink(*field_value),
+                                value=get_hyperlink(**field_values),
                                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
-                                  value=get_hyperlink(*field_value, is_markdown=True))
+                                  value=get_hyperlink(**field_values, is_markdown=True))
 
             response = requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
             logging.error(f"{response.status_code}: {response.text}")
