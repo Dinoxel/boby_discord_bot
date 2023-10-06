@@ -16,6 +16,7 @@ import requests
 
 from templates.mysql_connector import MysqlConnection
 import pandas as pd
+import json
 
 from typing import Union
 
