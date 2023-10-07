@@ -410,7 +410,7 @@ async def last_merge_request_checker():
                             {
                                 "type": "section",
                                 "text": {
-                                    "text": f"{mr_author}\n{mr_description}",
+                                    "text": f"*{mr_author}*\n{mr_description}",
                                     "type": "mrkdwn"
                                 },
                                 "accessory": {
