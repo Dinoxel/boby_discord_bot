@@ -396,10 +396,10 @@ async def last_merge_request_checker():
             mr_thumbnail = last_merge_request["author"]["avatar_url"]
             mr_content = f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}"
 
-            embed = discord.Embed(title=mr_author,
-                                  color=side_color,
-                                  description=mr_description)
-            embed.set_thumbnail(url=mr_thumbnail)
+            # embed = discord.Embed(title=mr_author,
+            #                       color=side_color,
+            #                       description=mr_description)
+            # embed.set_thumbnail(url=mr_thumbnail)
 
             payload = {
                 "text": mr_content,
@@ -429,9 +429,9 @@ async def last_merge_request_checker():
                 field_name = "Branche cible"
                 field_values = {"text": f"`{last_merge_request['target_branch']}`",
                                 "hyperlink": f"{GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']}"}
-                embed.add_field(name=field_name,
-                                value=get_hyperlink(**field_values),
-                                inline=True)
+                # embed.add_field(name=field_name,
+                #                 value=get_hyperlink(**field_values),
+                #                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
                                   value=get_hyperlink(**field_values, is_markdown=True))
@@ -443,9 +443,9 @@ async def last_merge_request_checker():
                 field_values = {"text": f"{JIRA_KEY}-{mr_jira_id}",
                                 "hyperlink": f"{JIRA_URL}{JIRA_KEY}-{mr_jira_id}"}
 
-                embed.add_field(name=field_name,
-                                value=get_hyperlink(**field_values),
-                                inline=True)
+                # embed.add_field(name=field_name,
+                #                 value=get_hyperlink(**field_values),
+                #                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
                                   value=get_hyperlink(**field_values, is_markdown=True))
@@ -454,9 +454,9 @@ async def last_merge_request_checker():
                 field_name = "Labels"
                 field_values = ' • '.join(label for label in last_merge_request['labels'])
 
-                embed.add_field(name=field_name,
-                                value=field_values,
-                                inline=True)
+                # embed.add_field(name=field_name,
+                #                 value=field_values,
+                #                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
                                   value=field_values)
@@ -466,18 +466,18 @@ async def last_merge_request_checker():
                 field_values = {"text": "lien vers conflit",
                                 "hyperlink": f"{GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts"}
 
-                embed.add_field(name=field_name,
-                                value=get_hyperlink(**field_values),
-                                inline=True)
+                # embed.add_field(name=field_name,
+                #                 value=get_hyperlink(**field_values),
+                #                 inline=True)
                 set_payload_field(data_payload=payload,
                                   name=field_name,
                                   value=get_hyperlink(**field_values, is_markdown=True))
 
             requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
 
-            channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
-            await channel.send(embed=embed,
-                               content=mr_content)
+            # channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
+            # await channel.send(embed=embed,
+            #                    content=mr_content)
 
 
 @bot.listen()
