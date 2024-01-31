@@ -47,6 +47,7 @@ JIRA_MAIL = os.getenv("JIRA_MAIL")
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 JIRA_KEY = os.getenv("JIRA_KEY")
 JIRA_OLD_KEY = os.getenv("JIRA_OLD_KEY")
+JIRA_GENAI_KEY = "BIA"
 JIRA_APP_NAME = os.getenv("JIRA_APP_NAME")
 
 JIRA_URL = f"https://{JIRA_APP_NAME}.atlassian.net/browse/"
@@ -436,12 +437,13 @@ async def last_merge_request_checker():
                                   name=field_name,
                                   value=get_hyperlink(**field_values, is_markdown=True))
 
-            mr_jira_id = re.search(fr"(?i)^(?:{JIRA_KEY}|{JIRA_OLD_KEY})-(\d+)", last_merge_request['source_branch'])
-            if mr_jira_id:
-                mr_jira_id = mr_jira_id.groups()[0]
+            mr_jira_text = re.search(fr"(?i)^({JIRA_KEY}|{JIRA_OLD_KEY}|{JIRA_GENAI_KEY})-(\d+)", last_merge_request['source_branch'])
+            if mr_jira_text:
+                mr_jira_key = mr_jira_text.groups()[0]
+                mr_jira_id = mr_jira_text.groups()[1]
                 field_name = "Lien Jira"
-                field_values = {"text": f"{JIRA_KEY}-{mr_jira_id}",
-                                "hyperlink": f"{JIRA_URL}{JIRA_KEY}-{mr_jira_id}"}
+                field_values = {"text": f"{mr_jira_key}-{mr_jira_id}",
+                                "hyperlink": f"{JIRA_URL}{mr_jira_key}-{mr_jira_id}"}
 
                 # embed.add_field(name=field_name,
                 #                 value=get_hyperlink(**field_values),
