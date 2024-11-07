@@ -34,25 +34,19 @@ DISCORD_ADMIN_ROLE_ID = int(os.getenv("DISCORD_ADMIN_ROLE_ID"))
 
 GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
 GITLAB_GROUP_NAME = os.getenv("GITLAB_GROUP_NAME")
-GITLAB_PROJECT_NAME = os.getenv("GITLAB_PROJECT_NAME")
-GITLAB_REPO_URL = f"https://gitlab.com/{GITLAB_GROUP_NAME}/{GITLAB_PROJECT_NAME}/-"
+GITLAB_REPO_URL = "https://gitlab.com/" + GITLAB_GROUP_NAME + "/{project_name}/-"
 
-GITLAB_PROJECT_ID = os.getenv("GITLAB_PROJECT_ID")
-GITLAB_API_URL = f'https://gitlab.com/api/v4/projects/{GITLAB_PROJECT_ID}/merge_requests' \
-                 f'?state=opened' \
-                 f'&per_page=250' \
-                 f'&private_token={GITLAB_TOKEN}'
+GITLAB_API_URL = 'https://gitlab.com/api/v4/projects/{project_id}/merge_requests' \
+                 '?state=opened' \
+                 '&per_page=250' \
+                 '&private_token=' + GITLAB_TOKEN
 
-JIRA_MAIL = os.getenv("JIRA_MAIL")
-JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 JIRA_KEY = os.getenv("JIRA_KEY")
 JIRA_OLD_KEY = os.getenv("JIRA_OLD_KEY")
 JIRA_GENAI_KEY = "BIA"
 JIRA_APP_NAME = os.getenv("JIRA_APP_NAME")
 
 JIRA_URL = f"https://{JIRA_APP_NAME}.atlassian.net/browse/"
-JIRA_API_URL = f"https://{JIRA_APP_NAME}.atlassian.net/rest/api/3/search?jql=PROJECT = {JIRA_KEY} AND KEY IN"
-JIRA_AUTH = aiohttp.BasicAuth(JIRA_MAIL, JIRA_TOKEN)
 JIRA_HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
@@ -75,7 +69,23 @@ command_prefix = "$>" if IS_DEBUG_MODE else "$"
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
-previous_last_merge_request_id = None
+projects = {
+    "boby-web": {
+        "id": 36854322,
+        "image_url": None,
+        "last_mr_id": None
+    },
+    "autogen": {
+        "id": 58732527,
+        "image_url": "https://img.stackshare.io/service/106423/default_6a75064f17cfbf6b5161a75d7b92eba45e3e8663.jpg",
+        "last_mr_id": None
+    },
+    "boby-wordpress-theme": {
+        "id": 62835658,
+        "image_url": "https://cdn.pixabay.com/photo/2022/01/16/17/24/wordpress-6942722_1280.png",
+        "last_mr_id": None
+    }
+}
 voice_client = None
 last_music = None
 last_music_url = None
@@ -311,7 +321,6 @@ async def list_merge_requests(ctx, *arguments):
     """
     async with aiohttp.ClientSession() as session:
         async with session.get(GITLAB_API_URL) as resp:
-            global previous_last_merge_request_id
             if resp.status != 200:
                 print(f"Error {resp.status} while fetching data from Gitlab")
                 return
@@ -362,7 +371,7 @@ async def list_merge_requests(ctx, *arguments):
                 await ctx.send(embed=embed)
 
 
-@tasks.loop(seconds=8)
+@tasks.loop(seconds=10)
 async def last_merge_request_checker():
     """
     Check for new merge requests
@@ -370,116 +379,120 @@ async def last_merge_request_checker():
     :return: The embed containing the new merge request
     """
     async with aiohttp.ClientSession() as session:
-        async with session.get(GITLAB_API_URL) as resp:
-            global previous_last_merge_request_id
-            if resp.status != 200:
-                print(f"Error {resp.status} while fetching data from Gitlab")
-                return
-            merge_requests = await resp.json()
+        global projects
+        for project_name, project_data in projects.items():
+            async with session.get(GITLAB_API_URL.format(project_id=project_data.get("id"))) as resp:
+                if resp.status != 200:
+                    print(f"Error {resp.status} while fetching data from Gitlab for '{project_name}'")
+                    return
+                merge_requests = await resp.json()
 
-            last_merge_request = max(
-                (mr for mr in merge_requests if mr["author"]["username"] not in last_merge_request_users),
-                key=lambda mr: mr["iid"])
+                last_merge_request = max(
+                    (mr for mr in merge_requests if mr["author"]["username"] not in last_merge_request_users),
+                    key=lambda mr: mr["iid"])
 
-            if previous_last_merge_request_id is None:
-                previous_last_merge_request_id = last_merge_request["id"]
-                return
+                if project_data.get("last_mr_id") is None:
+                    project_data["last_mr_id"] = last_merge_request["id"]
+                    return
 
-            if last_merge_request["id"] <= previous_last_merge_request_id:
-                return
+                if last_merge_request["id"] <= project_data.get("last_mr_id"):
+                    return
 
-            previous_last_merge_request_id = last_merge_request["id"]
+                last_merge_request["id"] = last_merge_request["id"]
 
-            side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
-            mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
-            mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
-            mr_description = last_merge_request["title"]
-            mr_thumbnail = last_merge_request["author"]["avatar_url"]
-            mr_content = f"MR {GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}"
+                side_color = discord.Color.red() if last_merge_request["has_conflicts"] else discord.Color.green()
+                mr_author = last_merge_request["author"]["name"].replace("-", " ").replace("_", " ")
+                mr_author = re.sub(r"([a-z])([A-Z])", r"\1 \2", mr_author).replace("  ", " ").title().strip()
+                mr_description = last_merge_request["title"]
+                mr_thumbnail = last_merge_request["author"]["avatar_url"]
+                if project_data.get("image_url") is not None:
+                    mr_thumbnail = project_data.get("image_url")
 
-            # embed = discord.Embed(title=mr_author,
-            #                       color=side_color,
-            #                       description=mr_description)
-            # embed.set_thumbnail(url=mr_thumbnail)
+                mr_content = f"MR {GITLAB_REPO_URL.format(project_name=project_name)}/merge_requests/{last_merge_request['iid']}"
 
-            payload = {
-                "text": mr_content,
-                "attachments": [
-                    {
-                        "color": str(side_color),  # red: #E74C3C / green: #2ECC71
-                        "blocks": [
-                            {
-                                "type": "section",
-                                "text": {
-                                    "text": f"*{mr_author}*\n{mr_description}",
-                                    "type": "mrkdwn"
-                                },
-                                "accessory": {
-                                    "type": "image",
-                                    "image_url": mr_thumbnail,
-                                    "alt_text": f"Photo de profil Gitlab de {mr_author}"
-                                },
-                                "fields": []
-                            }
-                        ]
-                    }
-                ]
-            }
+                # embed = discord.Embed(title=mr_author,
+                #                       color=side_color,
+                #                       description=mr_description)
+                # embed.set_thumbnail(url=mr_thumbnail)
 
-            if last_merge_request['target_branch']:
-                field_name = "Branche cible"
-                field_values = {"text": f"`{last_merge_request['target_branch']}`",
-                                "hyperlink": f"{GITLAB_REPO_URL}/tree/{last_merge_request['target_branch']}"}
-                # embed.add_field(name=field_name,
-                #                 value=get_hyperlink(**field_values),
-                #                 inline=True)
-                set_payload_field(data_payload=payload,
-                                  name=field_name,
-                                  value=get_hyperlink(**field_values, is_markdown=True))
+                payload = {
+                    "text": mr_content,
+                    "attachments": [
+                        {
+                            "color": str(side_color),  # red: #E74C3C / green: #2ECC71
+                            "blocks": [
+                                {
+                                    "type": "section",
+                                    "text": {
+                                        "text": f"*{mr_author}*\n{mr_description}",
+                                        "type": "mrkdwn"
+                                    },
+                                    "accessory": {
+                                        "type": "image",
+                                        "image_url": mr_thumbnail,
+                                        "alt_text": f"Photo de profil Gitlab de {mr_author}"
+                                    },
+                                    "fields": []
+                                }
+                            ]
+                        }
+                    ]
+                }
 
-            mr_jira_text = re.search(fr"(?i)^({JIRA_KEY}|{JIRA_OLD_KEY}|{JIRA_GENAI_KEY})-(\d+)", last_merge_request['source_branch'])
-            if mr_jira_text:
-                mr_jira_key = mr_jira_text.groups()[0]
-                mr_jira_id = mr_jira_text.groups()[1]
-                field_name = "Lien Jira"
-                field_values = {"text": f"{mr_jira_key}-{mr_jira_id}",
-                                "hyperlink": f"{JIRA_URL}{mr_jira_key}-{mr_jira_id}"}
+                if last_merge_request['target_branch']:
+                    field_name = "Branche cible"
+                    field_values = {"text": f"`{last_merge_request['target_branch']}`",
+                                    "hyperlink": f"{GITLAB_REPO_URL.format(project_name=project_name)}/tree/{last_merge_request['target_branch']}"}
+                    # embed.add_field(name=field_name,
+                    #                 value=get_hyperlink(**field_values),
+                    #                 inline=True)
+                    set_payload_field(data_payload=payload,
+                                      name=field_name,
+                                      value=get_hyperlink(**field_values, is_markdown=True))
 
-                # embed.add_field(name=field_name,
-                #                 value=get_hyperlink(**field_values),
-                #                 inline=True)
-                set_payload_field(data_payload=payload,
-                                  name=field_name,
-                                  value=get_hyperlink(**field_values, is_markdown=True))
+                mr_jira_text = re.search(fr"(?i)^({JIRA_KEY}|{JIRA_OLD_KEY}|{JIRA_GENAI_KEY})-(\d+)", last_merge_request['source_branch'])
+                if mr_jira_text:
+                    mr_jira_key = mr_jira_text.groups()[0]
+                    mr_jira_id = mr_jira_text.groups()[1]
+                    field_name = "Lien Jira"
+                    field_values = {"text": f"{mr_jira_key}-{mr_jira_id}",
+                                    "hyperlink": f"{JIRA_URL}{mr_jira_key}-{mr_jira_id}"}
 
-            if last_merge_request['labels']:
-                field_name = "Labels"
-                field_values = ' • '.join(label for label in last_merge_request['labels'])
+                    # embed.add_field(name=field_name,
+                    #                 value=get_hyperlink(**field_values),
+                    #                 inline=True)
+                    set_payload_field(data_payload=payload,
+                                      name=field_name,
+                                      value=get_hyperlink(**field_values, is_markdown=True))
 
-                # embed.add_field(name=field_name,
-                #                 value=field_values,
-                #                 inline=True)
-                set_payload_field(data_payload=payload,
-                                  name=field_name,
-                                  value=field_values)
+                if last_merge_request['labels']:
+                    field_name = "Labels"
+                    field_values = ' • '.join(label for label in last_merge_request['labels'])
 
-            if last_merge_request['has_conflicts']:
-                field_name = "⚠️ Merge Conflict ⚠️"
-                field_values = {"text": "lien vers conflit",
-                                "hyperlink": f"{GITLAB_REPO_URL}/merge_requests/{last_merge_request['iid']}/conflicts"}
+                    # embed.add_field(name=field_name,
+                    #                 value=field_values,
+                    #                 inline=True)
+                    set_payload_field(data_payload=payload,
+                                      name=field_name,
+                                      value=field_values)
 
-                # embed.add_field(name=field_name,
-                #                 value=get_hyperlink(**field_values),
-                #                 inline=True)
-                set_payload_field(data_payload=payload,
-                                  name=field_name,
-                                  value=get_hyperlink(**field_values, is_markdown=True))
+                if last_merge_request['has_conflicts']:
+                    field_name = "⚠️ Merge Conflict ⚠️"
+                    field_values = {"text": "lien vers conflit",
+                                    "hyperlink": f"{GITLAB_REPO_URL.format(project_name=project_name)}/merge_requests/{last_merge_request['iid']}/conflicts"}
 
-            requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
+                    # embed.add_field(name=field_name,
+                    #                 value=get_hyperlink(**field_values),
+                    #                 inline=True)
+                    set_payload_field(data_payload=payload,
+                                      name=field_name,
+                                      value=get_hyperlink(**field_values, is_markdown=True))
 
-            # channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
-            # await channel.send(embed=embed,
-            #                    content=mr_content)
+                requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
+
+                # channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
+                # await channel.send(embed=embed,
+                #                    content=mr_content)
 
 
 @bot.listen()
