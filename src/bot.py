@@ -50,13 +50,13 @@ JIRA_APP_NAME = os.getenv("JIRA_APP_NAME")
 JIRA_URL = f"https://{JIRA_APP_NAME}.atlassian.net/browse/"
 JIRA_HEADERS = {"Accept": "application/json", "Content-Type": "application/json"}
 
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
-GITHUB_REPO_OWNER = os.environ.get("GITHUB_REPO_OWNER")
-GITHUB_REPO_WORKFLOW = os.environ.get("GITHUB_REPO_WORKFLOW")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "")
+GITHUB_REPO_WORKFLOW = os.getenv("GITHUB_REPO_WORKFLOW", "")
 GITHUB_REPO_URL = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_WORKFLOW}"
 GITHUB_WORKFLOW_HEADERS = {"Authorization": "Bearer " + GITHUB_TOKEN, "Accept": "application/vnd.github.v3+json"}
-GITHUB_WORKFLOW_EVENT_QA = os.environ.get("GITHUB_WORKFLOW_EVENT_QA")
-GITHUB_WORKFLOW_EVENT_SALES = os.environ.get("GITHUB_WORKFLOW_EVENT_SALES")
+GITHUB_WORKFLOW_EVENT_QA = os.getenv("GITHUB_WORKFLOW_EVENT_QA")
+GITHUB_WORKFLOW_EVENT_SALES = os.getenv("GITHUB_WORKFLOW_EVENT_SALES")
 
 SLACK_HOOK = os.getenv("SLACK_HOOK")
 
