@@ -299,27 +299,27 @@ async def on_ready():
         last_merge_request_checker3.start()
 
 
-@bot.command(name="estimate", aliases=["e"])
-async def estimate_time_for_sprints(ctx, *sprints):
-    if not sprints:
-        await ctx.send("Aucun sprint donné.")
-        return
-    sprints = sorted(set(sprints))
-    params_sprints = tuple(f"Sprint {sprint}_QA" for sprint in sprints)
-    sql_query = f"""SELECT DISTINCT SUM(i.`estimate_time`) As 'estimate_time'
-    FROM issue AS i
-    LEFT JOIN sprint_issues AS si
-    ON i.`id` = si.`issue_id`
-    RIGHT JOIN sprint AS s 
-    ON si.`sprint_id` = s.`id`
-    WHERE i.`status` not in ('DONE', 'IN REVIEW', 'TO MODIFY', 'IN PROGRESS', 'TO DEPLOY')
-    AND s.`name` in ({', '.join(['%s'] * len(sprints))})
-    AND i.`project_id` = (SELECT `id` from project WHERE `key` = '{}')"""
+# @bot.command(name="estimate", aliases=["e"])
+# async def estimate_time_for_sprints(ctx, *sprints):
+#     if not sprints:
+#         await ctx.send("Aucun sprint donné.")
+#         return
+#     sprints = sorted(set(sprints))
+#     params_sprints = tuple(f"Sprint {sprint}_QA" for sprint in sprints)
+#     sql_query = f"""SELECT DISTINCT SUM(i.`estimate_time`) As 'estimate_time'
+#     FROM issue AS i
+#     LEFT JOIN sprint_issues AS si
+#     ON i.`id` = si.`issue_id`
+#     RIGHT JOIN sprint AS s 
+#     ON si.`sprint_id` = s.`id`
+#     WHERE i.`status` not in ('DONE', 'IN REVIEW', 'TO MODIFY', 'IN PROGRESS', 'TO DEPLOY')
+#     AND s.`name` in ({', '.join(['%s'] * len(sprints))})
+#     AND i.`project_id` = (SELECT `id` from project WHERE `key` = '{}')"""
 
-    estimate_time = MysqlConnection().fetch_all(sql_query=sql_query, params=params_sprints, output_type="rows")[0][0]
-    await ctx.send(
-        f"Sprint{'s' if len(sprints) > 1 else ''} QA {', '.join(sprint for sprint in sprints)}\n"
-        f"-> Temps estimé : {0 if estimate_time is None else str(convert_time(estimate_time)).replace('.', ',')}")
+#     estimate_time = MysqlConnection().fetch_all(sql_query=sql_query, params=params_sprints, output_type="rows")[0][0]
+#     await ctx.send(
+#         f"Sprint{'s' if len(sprints) > 1 else ''} QA {', '.join(sprint for sprint in sprints)}\n"
+#         f"-> Temps estimé : {0 if estimate_time is None else str(convert_time(estimate_time)).replace('.', ',')}")
 
 
 @bot.command(name="git", aliases=["g", "gitlab"])
