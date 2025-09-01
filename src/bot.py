@@ -29,9 +29,9 @@ if platform.system() == 'Windows':
 load_dotenv(find_dotenv())
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID"))
-DISCORD_CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
-DISCORD_ADMIN_ROLE_ID = int(os.getenv("DISCORD_ADMIN_ROLE_ID"))
+DISCORD_GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", 0))
+DISCORD_CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID", 0))
+DISCORD_ADMIN_ROLE_ID = int(os.getenv("DISCORD_ADMIN_ROLE_ID", 0))
 
 GITLAB_TOKEN = os.getenv("GITLAB_TOKEN")
 GITLAB_GROUP_NAME = os.getenv("GITLAB_GROUP_NAME")
@@ -314,7 +314,7 @@ async def estimate_time_for_sprints(ctx, *sprints):
     ON si.`sprint_id` = s.`id`
     WHERE i.`status` not in ('DONE', 'IN REVIEW', 'TO MODIFY', 'IN PROGRESS', 'TO DEPLOY')
     AND s.`name` in ({', '.join(['%s'] * len(sprints))})
-    AND i.`project_id` = (SELECT `id` from project WHERE `key` = '{JIRA_KEY}')"""
+    AND i.`project_id` = (SELECT `id` from project WHERE `key` = '{}')"""
 
     estimate_time = MysqlConnection().fetch_all(sql_query=sql_query, params=params_sprints, output_type="rows")[0][0]
     await ctx.send(
