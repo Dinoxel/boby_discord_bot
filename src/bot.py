@@ -394,12 +394,17 @@ async def last_merge_request_checker1():
     global projects
     project_name = "boby-web"
     project_data = projects.get(project_name)
+    project_id = project_data.get("id")
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(GITLAB_API_URL.format(project_id=project_data.get("id"))) as resp:
+        async with session.get(GITLAB_API_URL.format(project_id=project_id)) as resp:
             if resp.status != 200:
                 print(f"Error {resp.status} while fetching data from Gitlab for '{project_name}'")
                 return
+
             merge_requests = await resp.json()
+            if len(merge_requests) == 0:
+                return
 
             last_merge_request = max(
                 (mr for mr in merge_requests if mr["author"]["username"] not in last_merge_request_users),
@@ -520,11 +525,14 @@ async def last_merge_request_checker2():
     global projects
     project_name = "boby-wordpress-theme"
     project_data = projects.get(project_name)
+    project_id = project_data.get("id")
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(GITLAB_API_URL.format(project_id=project_data.get("id"))) as resp:
+        async with session.get(GITLAB_API_URL.format(project_id=project_id)) as resp:
             if resp.status != 200:
                 print(f"Error {resp.status} while fetching data from Gitlab for '{project_name}'")
                 return
+
             merge_requests = await resp.json()
             if len(merge_requests) == 0:
                 return
@@ -649,13 +657,17 @@ async def last_merge_request_checker3():
 
     project_name = "autogen"
     project_data = projects.get(project_name)
+    project_id = project_data.get("id")
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(GITLAB_API_URL.format(project_id=project_data.get("id"))) as resp:
+        async with session.get(GITLAB_API_URL.format(project_id=project_id)) as resp:
             if resp.status != 200:
                 print(f"Error {resp.status} while fetching data from Gitlab for '{project_name}'")
                 return
+
             merge_requests = await resp.json()
+            if len(merge_requests) == 0:
+                return
 
             last_merge_request = max(
                 (mr for mr in merge_requests if mr["author"]["username"] not in last_merge_request_users),
