@@ -509,6 +509,7 @@ async def last_merge_request_checker1():
                                   value=get_hyperlink(**field_values, is_markdown=True))
 
             requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
+            project_data["last_mr_id"] = last_merge_request["id"]
 
             # channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
             # await channel.send(embed=embed,
@@ -640,6 +641,7 @@ async def last_merge_request_checker2():
                                   value=get_hyperlink(**field_values, is_markdown=True))
 
             requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
+            project_data["last_mr_id"] = last_merge_request["id"]
 
             # channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
             # await channel.send(embed=embed,
@@ -772,6 +774,7 @@ async def last_merge_request_checker3():
                                   value=get_hyperlink(**field_values, is_markdown=True))
 
             requests.post(url=SLACK_HOOK, data=json.dumps(payload), headers=JIRA_HEADERS)
+            project_data["last_mr_id"] = last_merge_request["id"]
 
             # channel = bot.get_guild(DISCORD_GUILD_ID).get_channel(DISCORD_CHANNEL_ID)
             # await channel.send(embed=embed,
